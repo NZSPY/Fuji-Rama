@@ -34,28 +34,22 @@ POKE 82,0 'set margin to zero
 ? " **************************************"
 'open the API connect and setup for Read JSON file
 ' commenting this all out to see if I can get just the string sliceing working
-'@openconnection
-'@nsetchannelmode 
-'@nparsejson
-'IF SErr()<>1
-'PRINT "Could not parse JSON."
-'@nprinterror
-'GET K
-'ENDIF
+@openconnection
+@nsetchannelmode 
+@nparsejson
+IF SErr()<>1
+PRINT "Could not parse JSON."
+@nprinterror
+GET K
+ENDIF
 
 'display a table of the available rooms 
 
 Dim TableName$(5),TableCurrentPlayers$(5),TableMaxPlayers$(5) 'String arrays to load with the values from the table Query
 ' @getresult
-' simulate data reurned from Query for now so I can test my string slicing
-O$ ="t"$9B"ai6"$9B"n"$9B"AI Room - 6 bots"$9B"p"$9B"0"$9B"m"$9B"2"$9B 
-O$ =+"t"$9B"ai4"$9B"n"$9B"AI Room - 4 bots"$9B"p"$9B"0"$9B"m"$9B"4"$9B
-O$ =+"t"$9B"ai2"$9B"n"$9B"AI Room - 2 bots"$9B"p"$9B"0"$9B"m"$9B"6"$9B
-O$ =+"t"$9B"den"$9B"n"$9B"The Den"$9B"p"$9B"0"$9B"m"$9B"8"$9B
-O$ =+"t"$9B"basement"$9B"n"$9B"The Basement"$9B"p"$9B"0"$9B"m"$9B"8"$9B
+@getSimulateddata
 
-
-
+'load the data into the revelent Array Strings (ned to make this more dynamaic, but it's hard coded for now)
 STARTCHR=1
 LENGTH=-2
 INDEX=0
@@ -75,7 +69,7 @@ LENGTH=-1
 STARTCHR=a+1
 ENDIF
 Next a
-
+'now display the data on the welcome page 
 X=35:Y=7
 for a=0 to 4
 ? " *";TableName$(a);
@@ -84,9 +78,11 @@ inc y
 next a
 ? " **************************************"
 
+
+' all done for now exit the program
 ? "done"
 GET K
-'NCLOSE UNIT
+NCLOSE UNIT
 
 
 
@@ -138,3 +134,11 @@ POKE &RESULT,BW-1
 O$=$(ADR(RESULT))
 ENDPROC
 
+' simulate data reurned from Query for now so I can test my string slicing
+PROC getSimulateddata
+O$ ="t"$9B"ai6"$9B"n"$9B"AI Room - 6 bots"$9B"p"$9B"0"$9B"m"$9B"2"$9B 
+O$ =+"t"$9B"ai4"$9B"n"$9B"AI Room - 4 bots"$9B"p"$9B"0"$9B"m"$9B"4"$9B
+O$ =+"t"$9B"ai2"$9B"n"$9B"AI Room - 2 bots"$9B"p"$9B"0"$9B"m"$9B"6"$9B
+O$ =+"t"$9B"den"$9B"n"$9B"The Den"$9B"p"$9B"0"$9B"m"$9B"8"$9B
+O$ =+"t"$9B"basement"$9B"n"$9B"The Basement"$9B"p"$9B"0"$9B"m"$9B"8"$9B
+ENDPROC
