@@ -3,7 +3,7 @@
 ' @author  Simon Young
 
 
-' Disable BASIC on XL/XE to make more memory available.
+' Disable BASIC on XL/XE to make more memory available. (found in Erics code  don't know if I need it or not)
 if dpeek(741)-$BC00<0
   ' Disable BASIC
   pause: poke $D301, peek($D301) ! 2: poke $3F8, 1
@@ -33,64 +33,63 @@ POKE 82,0 'set margin to zero
 ? " *Table Name                   Players*"
 ? " **************************************"
 'open the API connect and setup for Read JSON file
-@openconnection
-@nsetchannelmode 
-@nparsejson
-IF SErr()<>1
+' commenting this all out to see if I can get just the string sliceing working
+'@openconnection
+'@nsetchannelmode 
+'@nparsejson
+'IF SErr()<>1
 'PRINT "Could not parse JSON."
-@nprinterror
-@Wait
-ENDIF
+'@nprinterror
+'GET K
+'ENDIF
 
 'display a table of the available rooms 
 
-Dim TableName$(50),TableCurrentPlayers$(5),TableMaxPlayers$(5) 'String arrays to load with the values from the table Query
-@getresult
-? O$
-@Wait
+Dim TableName$(5),TableCurrentPlayers$(5),TableMaxPlayers$(5) 'String arrays to load with the values from the table Query
+' @getresult
+' simulate data reurned from Query for now so I can test my string slicing
+O$ ="t"$9B"ai6"$9B"n"$9B"AI Room - 6 bots"$9B"p"$9B"0"$9B"m"$9B"2"$9B 
+O$ =+"t"$9B"ai4"$9B"n"$9B"AI Room - 4 bots"$9B"p"$9B"0"$9B"m"$9B"4"$9B
+O$ =+"t"$9B"ai2"$9B"n"$9B"AI Room - 2 bots"$9B"p"$9B"0"$9B"m"$9B"6"$9B
+O$ =+"t"$9B"den"$9B"n"$9B"The Den"$9B"p"$9B"0"$9B"m"$9B"8"$9B
+O$ =+"t"$9B"basement"$9B"n"$9B"The Basement"$9B"p"$9B"0"$9B"m"$9B"8"$9B
+
+
 
 STARTCHR=1
 LENGTH=-2
 INDEX=0
 SKIP=0
-
 FOR a=0 TO LEN(O$)
 INC LENGTH
 IF PEEK(&O$+a)=$9B
-'IF SKIP=1 then TableName$(INDEX)=O$[STARTCHR,LENGTH]
-TableName$(INDEX)=O$[STARTCHR,LENGTH]
+    IF SKIP=3 THEN TableName$(INDEX)=O$[STARTCHR,LENGTH]
+    IF SKIP=5 THEN TableCurrentPlayers$(INDEX)=O$[STARTCHR,LENGTH]
+    IF SKIP=7 
+        TableMaxPlayers$(INDEX)=O$[STARTCHR,LENGTH]
+        SKIP=-1
+        INC INDEX
+    ENDIF
+INC SKIP
 LENGTH=-1
 STARTCHR=a+1
 ENDIF
-'TN$(INDEX)=temp$
-'IF SKIP=3 THEN Name$(INDEX)=temp$
-'IF SKIP=5 THEN TableCurrentPlayers$(INDEX)=temp$
-'IF SKIP=7 
-'TableMaxPlayers$(INDEX)=temp$
-'SKIP=-1
-INC INDEX
-'ENDIF
-INC SKIP
 Next a
 
-
-for a=0 to 6
-? TableName$(a);"*"';TableCurrentPlayers$(a);"/";TableMaxPlayers$(a)
+X=35:Y=7
+for a=0 to 4
+? " *";TableName$(a);
+Position X,Y: ? TableCurrentPlayers$(a);"/";TableMaxPlayers$(a);"*"
+inc y
 next a
 ? " **************************************"
-@Wait
+
 ? "done"
-@Wait
-NCLOSE UNIT
+GET K
+'NCLOSE UNIT
 
 
-PROC Wait
-K=0
-POKE 764,255
-REPEAT 
-K=key()
-UNTIL K<>0
-ENDPROC
+
 
 ' PROCEDURES to get Json data and load into the Var Result
 
