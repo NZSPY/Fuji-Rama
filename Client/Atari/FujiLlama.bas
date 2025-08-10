@@ -33,7 +33,7 @@ POKE 82,0 'set margin to zero
 ? " *Table Name                   Players*"
 ? " **************************************"
 'open the API connect and setup for Read JSON file
-' commenting this all out to see if I can get just the string sliceing working
+
 @openconnection
 @nsetchannelmode 
 @nparsejson
@@ -46,8 +46,8 @@ ENDIF
 'display a table of the available rooms 
 
 Dim TableName$(5),TableCurrentPlayers$(5),TableMaxPlayers$(5) 'String arrays to load with the values from the table Query
-' @getresult
-@getSimulateddata
+@getresult
+'@getSimulateddata
 
 'load the data into the revelent Array Strings (ned to make this more dynamaic, but it's hard coded for now)
 STARTCHR=1
@@ -71,7 +71,7 @@ ENDIF
 Next a
 'now display the data on the welcome page 
 X=35:Y=7
-for a=0 to 4
+for a=0 to 5
 ? " *";TableName$(a);
 Position X,Y: ? TableCurrentPlayers$(a);"/";TableMaxPlayers$(a);"*"
 inc y
@@ -96,8 +96,6 @@ IF SERR()<>1
 PRINT "Could not open connection."
 @nprinterror
 EXIT
-'ELSE
-'PRINT "Horray"
 ENDIF
 ENDPROC
 
@@ -129,9 +127,9 @@ EXIT
 ENDIF
 BW=DPEEK($02EA)
 NGET UNIT, &RESULT+1, BW
-'BPUT #0,  &RESULT, BW (leaving this as might need it for debuging at a later date )
 POKE &RESULT,BW-1
 O$=$(ADR(RESULT))
+O$=+""$9B
 ENDPROC
 
 ' simulate data reurned from Query for now so I can test my string slicing
