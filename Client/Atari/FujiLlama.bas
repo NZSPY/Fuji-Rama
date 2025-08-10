@@ -2,28 +2,38 @@
 ' Written in Atari FastBasic
 ' @author  Simon Young
 
+
+' Disable BASIC on XL/XE to make more memory available.
+if dpeek(741)-$BC00<0
+  ' Disable BASIC
+  pause: poke $D301, peek($D301) ! 2: poke $3F8, 1
+  ' Set memtop to 48K
+  dpoke 741, $BC00
+endif
+
 ' Fuji-Net Setup Variblies 
 UNIT=1
 DIM RESULT(1024) BYTE
+'RESULT$=""
 JSON_MODE=1
 URL$="N:HTTP://192.168.68.100:8080/tables"
 QUERY$=""
-
+O$=""
 
 ' Draw the opening screen 
 GRAPHICS 0
 SETCOLOR 2,0,0
 SETCOLOR 1,14,6
-?"*** Welcome to Fuji-Llama ***"
-?"Choose a table to join"
-
-? "press and key to open the connection"
-@Wait
+POKE 82,0 'set margin to zero
+?
+? "      *** Welcome to Fuji-Llama ***    "
+?
+? " Choose a table to join"
+? " **************************************"
+? " *Table Name                   Players*"
+? " **************************************"
+'open the API connect and setup for Read JSON file
 @openconnection
-
-? "press and key to setup JSON"
-@Wait
-
 @nsetchannelmode 
 @nparsejson
 IF SErr()<>1
@@ -32,11 +42,43 @@ IF SErr()<>1
 @Wait
 ENDIF
 
+'display a table of the available rooms 
+
+Dim TableName$(50),TableCurrentPlayers$(5),TableMaxPlayers$(5) 'String arrays to load with the values from the table Query
 @getresult
+? O$
 @Wait
 
-? $(&RESULT)
+STARTCHR=1
+LENGTH=-2
+INDEX=0
+SKIP=0
 
+FOR a=0 TO LEN(O$)
+INC LENGTH
+IF PEEK(&O$+a)=$9B
+'IF SKIP=1 then TableName$(INDEX)=O$[STARTCHR,LENGTH]
+TableName$(INDEX)=O$[STARTCHR,LENGTH]
+LENGTH=-1
+STARTCHR=a+1
+ENDIF
+'TN$(INDEX)=temp$
+'IF SKIP=3 THEN Name$(INDEX)=temp$
+'IF SKIP=5 THEN TableCurrentPlayers$(INDEX)=temp$
+'IF SKIP=7 
+'TableMaxPlayers$(INDEX)=temp$
+'SKIP=-1
+INC INDEX
+'ENDIF
+INC SKIP
+Next a
+
+
+for a=0 to 6
+? TableName$(a);"*"';TableCurrentPlayers$(a);"/";TableMaxPlayers$(a)
+next a
+? " **************************************"
+@Wait
 ? "done"
 @Wait
 NCLOSE UNIT
@@ -59,8 +101,8 @@ IF SERR()<>1
 PRINT "Could not open connection."
 @nprinterror
 EXIT
-ELSE
-PRINT "Horray"
+'ELSE
+'PRINT "Horray"
 ENDIF
 ENDPROC
 
@@ -81,7 +123,7 @@ NSTATUS UNIT
 PRINT "ERROR- "; PEEK($02ED)
 ENDPROC
 
-PROC getresult
+PROC getresult 
 @njsonquery
 NSTATUS UNIT
 IF PEEK($02ED) > 128
@@ -91,7 +133,9 @@ PRINT "ERROR- "; PEEK($02ED)
 EXIT
 ENDIF
 BW=DPEEK($02EA)
-NGET UNIT, &RESULT, BW
-' BPUT #0,  &RESULT, BW 
+NGET UNIT, &RESULT+1, BW
+'BPUT #0,  &RESULT, BW (leaving this as might need it for debuging at a later date )
+POKE &RESULT,BW-1
+O$=$(ADR(RESULT))
 ENDPROC
 
