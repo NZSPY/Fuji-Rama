@@ -50,7 +50,7 @@ const PLAYER_PING_TIMEOUT = time.Minute * time.Duration(-5)
 const WAITING_MESSAGE = "Waiting for more players"
 const STARTING_PURSE = 200
 
-var botNames = []string{"Clyd", "Jim", "Kirk", "Hulk", "Fry", "Meg", "Grif", "GPT"}
+var botNames = []string{"SPY1", "SPY2", "SPY3", "SPY4", "SPY5", "SPY6", "SPY7", "SPY8"}
 
 type GameTable struct {
 	Table      string `json:"t"`
@@ -540,6 +540,16 @@ func (state *GameState) setClientPlayerByName(playerName string) {
 
 func createGameState(playerCount int, registerLobby bool) *GameState {
 
+	// My Deck creation code replacing Eric's
+	cardNames := []string{"One", "Two", "Three", "Four", "Five", "Six", "Llama"}
+	deck := make(deck, 0, 56) // Pre-allocate slice with capacity for 56 cards
+
+	for i := 0; i < 8; i++ { // Repeat the cards 8 times to create a full deck
+		for value, name := range cardNames {
+			deck = append(deck, card{cardvalue: value + 1, cardname: name})
+		}
+	}
+	/* Eric's Create deck code
 	deck := []card{}
 
 	// Create deck of 52 cards
@@ -549,6 +559,7 @@ func createGameState(playerCount int, registerLobby bool) *GameState {
 			deck = append(deck, card)
 		}
 	}
+	*/
 
 	state := GameState{}
 
