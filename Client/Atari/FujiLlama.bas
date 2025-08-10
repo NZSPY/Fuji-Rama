@@ -13,12 +13,22 @@ endif
 
 ' Fuji-Net Setup Variblies 
 UNIT=1
-DIM RESULT(1024) BYTE
+dim responseBuffer(1023) BYTE
 'RESULT$=""
 JSON_MODE=1
 URL$="N:HTTP://192.168.68.100:8080/tables"
 QUERY$=""
-O$=""
+
+' Initialize strings - this reserves their space in memory so NInput can write to them
+Dim  TableID$(6),TableName$(6),TableCurrentPlayers$(6),TableMaxPlayers$(6)
+
+dummy$=""
+for i=0 to 6
+ TableID$(i)=""
+ TableName$(i)=""
+ TableCurrentPlayers$(i)=""
+ TableMaxPlayers$(i)=""
+next i
 
 ' Draw the opening screen 
 GRAPHICS 0
@@ -32,43 +42,27 @@ POKE 82,0 'set margin to zero
 ? " **************************************"
 ? " *Table Name                   Players*"
 ? " **************************************"
-'open the API connect and setup for Read JSON file
 
-@openconnection
-@nsetchannelmode 
-@nparsejson
-IF SErr()<>1
-PRINT "Could not parse JSON."
-@nprinterror
-GET K
-ENDIF
 
-'display a table of the available rooms 
+@CallFujiNet
 
-Dim TableName$(5),TableCurrentPlayers$(5),TableMaxPlayers$(5) 'String arrays to load with the values from the table Query
-@getresult
-'@getSimulateddata
+' Initialize reading the api response
+ @NInputInit UNIT, &responseBuffer
 
-'load the data into the revelent Array Strings (ned to make this more dynamaic, but it's hard coded for now)
-STARTCHR=1
-LENGTH=-2
+'Convert table JSON into strings for display and slection use 
 INDEX=0
-SKIP=0
-FOR a=0 TO LEN(O$)
-INC LENGTH
-IF PEEK(&O$+a)=$9B
-    IF SKIP=3 THEN TableName$(INDEX)=O$[STARTCHR,LENGTH]
-    IF SKIP=5 THEN TableCurrentPlayers$(INDEX)=O$[STARTCHR,LENGTH]
-    IF SKIP=7 
-        TableMaxPlayers$(INDEX)=O$[STARTCHR,LENGTH]
-        SKIP=-1
-        INC INDEX
-    ENDIF
-INC SKIP
-LENGTH=-1
-STARTCHR=a+1
-ENDIF
-Next a
+do
+  ' If the first read is empty, we reached the end
+  @NInput &dummy$ : if len(dummy$) = 0 then exit
+  @NInput &TableID$(INDEX)
+  @NInput &dummy$ : @NInput &TableName$(INDEX)
+  @NInput &dummy$ : @NInput &TableCurrentPlayers$(INDEX)
+  @NInput &dummy$ : @NInput &TableMaxPlayers$(INDEX)
+
+  INC INDEX
+loop 
+
+
 'now display the data on the welcome page 
 X=35:Y=7
 for a=0 to 5
@@ -85,9 +79,21 @@ GET K
 NCLOSE UNIT
 
 
-
-
+'-------------------------------------------------------------
 ' PROCEDURES to get Json data and load into the Var Result
+'open the API connect and setup for Read JSON file
+'--------------------------------------------------------------
+PROC CallFujiNet
+@openconnection
+@nsetchannelmode 
+@nparsejson
+IF SErr()<>1
+PRINT "Could not parse JSON."
+@nprinterror
+GET K
+ENDIF
+ENDPROC
+
 
 PROC openconnection ' Open the connection, or throw error and end program
 NOPEN UNIT, 12, 0, URL$
@@ -125,18 +131,42 @@ PRINT QUERY$
 PRINT "ERROR- "; PEEK($02ED)
 EXIT
 ENDIF
-BW=DPEEK($02EA)
-NGET UNIT, &RESULT+1, BW
-POKE &RESULT,BW-1
-O$=$(ADR(RESULT))
-O$=+""$9B
 ENDPROC
 
-' simulate data reurned from Query for now so I can test my string slicing
-PROC getSimulateddata
-O$ ="t"$9B"ai6"$9B"n"$9B"AI Room - 6 bots"$9B"p"$9B"0"$9B"m"$9B"2"$9B 
-O$ =+"t"$9B"ai4"$9B"n"$9B"AI Room - 4 bots"$9B"p"$9B"0"$9B"m"$9B"4"$9B
-O$ =+"t"$9B"ai2"$9B"n"$9B"AI Room - 2 bots"$9B"p"$9B"0"$9B"m"$9B"6"$9B
-O$ =+"t"$9B"den"$9B"n"$9B"The Den"$9B"p"$9B"0"$9B"m"$9B"8"$9B
-O$ =+"t"$9B"basement"$9B"n"$9B"The Basement"$9B"p"$9B"0"$9B"m"$9B"8"$9B
+
+
+' ============================================================================
+' From Eric Carr
+' (N Helper) Gets the entire response from the specified unit into the provided buffer index for NInput to read from.
+' WARNING! No check is made if buffer length is long enough to hold the FujiNet payload.
+PROC NInputInit __NI_unit __NI_index
+  __NI_bufferEnd = __NI_index + DPEEK($02EA)
+  NGET __NI_unit, __NI_index, __NI_bufferEnd - __NI_index
+ENDPROC
+
+' ============================================================================
+' (N Helper) Reads a line of text into the specified string - Similar to Atari BASIC: INPUT #N, MyString$
+PROC NInput __NI_stringPointer
+
+  ' Start the indexStop at the current index position
+  __NI_indexStop = __NI_index
+  
+  ' Seek the end of this line (or buffer)
+  while peek(__NI_indexStop) <> $9B and __NI_indexStop < __NI_bufferEnd
+    inc __NI_indexStop
+  wend
+
+  ' Calculate the length of this result
+  __NI_resultLen = __NI_indexStop - __NI_index
+  
+  ' Update the length in the output string 
+  poke __NI_stringPointer, __NI_resultLen
+
+  ' If we successfully read a value, copy from the buffer to the string that was passed in and increment the index
+  if __NI_indexStop < __NI_bufferEnd
+    move __NI_index, __NI_stringPointer+1, __NI_resultLen
+
+    ' Move the buffer index for the next input
+    __NI_index = __NI_indexStop + 1
+  endif
 ENDPROC
