@@ -2,10 +2,14 @@ package main
 
 import (
 	"fmt"
+	"math"
 	"math/rand"
+	"slices"
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/mitchellh/hashstructure/v2"
 )
 
 var numberplayers = 6
@@ -23,9 +27,6 @@ var currentdeck deck
 type card struct {
 	cardvalue int
 	cardname  string
-	// use these to get erics code going
-	value int
-	suit  int
 }
 
 // Deck represents a collection of cards.
@@ -124,60 +125,60 @@ func initializeGameServer() {
 }
 
 func (state *GameState) performMove(move string, internalCall ...bool) bool {
-	/*
-		if len(internalCall) == 0 || !internalCall[0] {
-			state.playerPing()
-		}
 
-		// Get pointer to player
-		player := &state.Players[state.ActivePlayer]
+	if len(internalCall) == 0 || !internalCall[0] {
+		state.playerPing()
+	}
 
-		// Sanity check if player is still in the game. Unless there is a bug, they should never be active if their status is != PLAYING
-		if player.Status != STATUS_PLAYING {
-			return false
-		}
+	// Get pointer to player
+	player := &state.Players[state.ActivePlayer]
 
-		// Only perform move if it is a valid move for this player
-		if !slices.ContainsFunc(state.getValidMoves(), func(m validMove) bool { return m.Move == move }) {
-			return false
-		}
+	// Sanity check if player is still in the game. Unless there is a bug, they should never be active if their status is != PLAYING
+	if player.Status != STATUS_PLAYING {
+		return false
+	}
 
-		if move == "FO" { // FOLD
-			player.Status = STATUS_FOLDED
-		} else if move != "CH" { // Not Checking
+	// Only perform move if it is a valid move for this player
+	if !slices.ContainsFunc(state.getValidMoves(), func(m validMove) bool { return m.Move == move }) {
+		return false
+	}
 
-			// Default raise to 0 (effectively a CALL)
-			raise := 0
+	if move == "FO" { // FOLD
+		player.Status = STATUS_FOLDED
+	} else if move != "CH" { // Not Checking
 
-			if move == "RA" {
-				raise = state.raiseAmount
-				state.raiseCount++
-			} else if move == "BH" {
-				raise = HIGH
-				state.raiseAmount = HIGH
-			} else if move == "BL" {
-				raise = LOW
-				state.raiseAmount = LOW
+		// Default raise to 0 (effectively a CALL)
+		raise := 0
 
-				// If betting LOW the very first time and the pot is BRINGIN
-				// just make their bet enough to make the total bet LOW
-				if state.currentBet == BRINGIN {
-					raise -= BRINGIN
-				}
-			} else if move == "BB" {
-				raise = BRINGIN
+		if move == "RA" {
+			raise = state.raiseAmount
+			state.raiseCount++
+		} else if move == "BH" {
+			raise = HIGH
+			state.raiseAmount = HIGH
+		} else if move == "BL" {
+			raise = LOW
+			state.raiseAmount = LOW
+
+			// If betting LOW the very first time and the pot is BRINGIN
+			// just make their bet enough to make the total bet LOW
+			if state.currentBet == BRINGIN {
+				raise -= BRINGIN
 			}
-
-			// Place the bet
-			delta := state.currentBet + raise - player.Bet
-			state.currentBet += raise
-			player.Bet += delta
-			player.Purse -= delta
+		} else if move == "BB" {
+			raise = BRINGIN
 		}
 
-		player.Move = moveLookup[move]
-		state.nextValidPlayer()
-	*/
+		// Place the bet
+		delta := state.currentBet + raise - player.Bet
+		state.currentBet += raise
+		player.Bet += delta
+		player.Purse -= delta
+	}
+
+	player.Move = moveLookup[move]
+	state.nextValidPlayer()
+
 	return true
 
 }
@@ -187,285 +188,284 @@ func (state *GameState) performMove(move string, internalCall ...bool) bool {
 func (state *GameState) createClientState() *GameState {
 
 	stateCopy := *state
-	/*
-		setActivePlayer := false
 
-		// Check if:
-		// 1. The game is over,
-		// 2. Only one player is left (waiting for another player to join)
-		// 3. We are at the end of a round, where the active player has moved
-		// This lets the client perform end of round/game tasks/animation
-		if state.gameOver ||
-			len(stateCopy.Players) < 2 ||
-			(stateCopy.ActivePlayer > -1 && ((state.currentBet > 0 && state.Players[state.ActivePlayer].Bet == state.currentBet) ||
-				(state.currentBet == 0 && state.Players[state.ActivePlayer].Move != ""))) {
-			stateCopy.ActivePlayer = -1
+	setActivePlayer := false
+
+	// Check if:
+	// 1. The game is over,
+	// 2. Only one player is left (waiting for another player to join)
+	// 3. We are at the end of a round, where the active player has moved
+	// This lets the client perform end of round/game tasks/animation
+	if state.gameOver ||
+		len(stateCopy.Players) < 2 ||
+		(stateCopy.ActivePlayer > -1 && ((state.currentBet > 0 && state.Players[state.ActivePlayer].Bet == state.currentBet) ||
+			(state.currentBet == 0 && state.Players[state.ActivePlayer].Move != ""))) {
+		stateCopy.ActivePlayer = -1
+		setActivePlayer = true
+	}
+
+	// Now, store a copy of state players, then loop
+	// through and add to the state copy, starting
+	// with this player first
+
+	statePlayers := stateCopy.Players
+	stateCopy.Players = []Player{}
+
+	// When on observer is viewing the game, the clientPlayer will be -1, so just start at 0
+	// Also, set flag to let client know they are not actively part of the game
+	start := state.clientPlayer
+	if start < 0 {
+		start = 0
+		stateCopy.Viewing = 1
+	} else {
+		stateCopy.Viewing = 0
+	}
+
+	// Loop through each player and create the hand, starting at this player, so all clients see the same order regardless of starting player
+	for i := start; i < start+len(statePlayers); i++ {
+
+		// Wrap around to beginning of playar array when needed
+		playerIndex := i % len(statePlayers)
+
+		// Update the ActivePlayer to be client relative
+		if !setActivePlayer && playerIndex == stateCopy.ActivePlayer {
 			setActivePlayer = true
+			stateCopy.ActivePlayer = i - start
 		}
 
-		// Now, store a copy of state players, then loop
-		// through and add to the state copy, starting
-		// with this player first
+		player := statePlayers[playerIndex]
+		player.Hand = ""
 
-		statePlayers := stateCopy.Players
-		stateCopy.Players = []Player{}
-
-		// When on observer is viewing the game, the clientPlayer will be -1, so just start at 0
-		// Also, set flag to let client know they are not actively part of the game
-		start := state.clientPlayer
-		if start < 0 {
-			start = 0
-			stateCopy.Viewing = 1
-		} else {
-			stateCopy.Viewing = 0
-		}
-
-		// Loop through each player and create the hand, starting at this player, so all clients see the same order regardless of starting player
-		for i := start; i < start+len(statePlayers); i++ {
-
-			// Wrap around to beginning of playar array when needed
-			playerIndex := i % len(statePlayers)
-
-			// Update the ActivePlayer to be client relative
-			if !setActivePlayer && playerIndex == stateCopy.ActivePlayer {
-				setActivePlayer = true
-				stateCopy.ActivePlayer = i - start
-			}
-
-			player := statePlayers[playerIndex]
-			player.Hand = ""
-
-			switch player.Status {
-			case STATUS_PLAYING:
-				// Loop through and build hand string, taking
-				// care to not disclose the first card of a hand to other players
-				for cardIndex, card := range player.cards {
-					if cardIndex > 0 || playerIndex == state.clientPlayer || (state.Round == 5 && !state.wonByFolds) {
-						player.Hand += valueLookup[card.value] + suitLookup[card.suit]
-					} else {
-						player.Hand += "??"
-					}
+		switch player.Status {
+		case STATUS_PLAYING:
+			// Loop through and build hand string, taking
+			// care to not disclose the first card of a hand to other players
+			for cardIndex, card := range player.cards {
+				if cardIndex > 0 || playerIndex == state.clientPlayer || (state.Round == 5 && !state.wonByFolds) {
+					player.Hand += valueLookup[card.value] + suitLookup[card.suit]
+				} else {
+					player.Hand += "??"
 				}
-			case STATUS_FOLDED:
-				player.Hand = "??"
 			}
-
-			// Add this player to the copy of the state going out
-			stateCopy.Players = append(stateCopy.Players, player)
+		case STATUS_FOLDED:
+			player.Hand = "??"
 		}
 
-		// Determine valid moves for this player (if their turn)
-		if stateCopy.ActivePlayer == 0 {
-			stateCopy.ValidMoves = state.getValidMoves()
-		}
+		// Add this player to the copy of the state going out
+		stateCopy.Players = append(stateCopy.Players, player)
+	}
 
-		// Determine the move time left. Reduce the number by the grace period, to allow for plenty of time for a response to be sent back and accepted
-		stateCopy.MoveTime = int(time.Until(stateCopy.moveExpires).Seconds())
+	// Determine valid moves for this player (if their turn)
+	if stateCopy.ActivePlayer == 0 {
+		stateCopy.ValidMoves = state.getValidMoves()
+	}
 
-		if stateCopy.ActivePlayer > -1 {
-			stateCopy.MoveTime -= MOVE_TIME_GRACE_SECONDS
-		}
+	// Determine the move time left. Reduce the number by the grace period, to allow for plenty of time for a response to be sent back and accepted
+	stateCopy.MoveTime = int(time.Until(stateCopy.moveExpires).Seconds())
 
-		// No need to send move time if the calling player isn't the active player
-		if stateCopy.MoveTime < 0 || stateCopy.ActivePlayer != 0 {
-			stateCopy.MoveTime = 0
-		}
+	if stateCopy.ActivePlayer > -1 {
+		stateCopy.MoveTime -= MOVE_TIME_GRACE_SECONDS
+	}
 
-		// Compute hash - this will be compared with an incoming hash. If the same, the entire state does not
-		// need to be sent back. This speeds up checks for change in state
-		stateCopy.hash = "0"
-		hash, _ := hashstructure.Hash(stateCopy, hashstructure.FormatV2, nil)
-		stateCopy.hash = fmt.Sprintf("%d", hash)
-	*/
+	// No need to send move time if the calling player isn't the active player
+	if stateCopy.MoveTime < 0 || stateCopy.ActivePlayer != 0 {
+		stateCopy.MoveTime = 0
+	}
+
+	// Compute hash - this will be compared with an incoming hash. If the same, the entire state does not
+	// need to be sent back. This speeds up checks for change in state
+	stateCopy.hash = "0"
+	hash, _ := hashstructure.Hash(stateCopy, hashstructure.FormatV2, nil)
+	stateCopy.hash = fmt.Sprintf("%d", hash)
+
 	return &stateCopy
 }
 
 // Emulates simplified player/logic for 5 card stud
 func (state *GameState) runGameLogic() {
-	/*
-		state.playerPing()
 
-		// We can't play a game until there are at least 2 players
-		if len(state.Players) < 2 {
-			// Reset the round to 0 so the client knows there is no active game being run
+	state.playerPing()
+
+	// We can't play a game until there are at least 2 players
+	if len(state.Players) < 2 {
+		// Reset the round to 0 so the client knows there is no active game being run
+		state.Round = 0
+		state.Pot = 0
+		state.ActivePlayer = -1
+		return
+	}
+
+	// Very first call of state? Initialize first round but do not play for any BOTs
+	if state.Round == 0 {
+		state.newRound()
+		return
+	}
+
+	//isHumanPlayer := state.ActivePlayer == state.clientPlayer
+
+	if state.gameOver {
+
+		// Create a new game if the end game delay is past
+		if int(time.Until(state.moveExpires).Seconds()) < 0 {
+			state.dropInactivePlayers(false, false)
 			state.Round = 0
 			state.Pot = 0
-			state.ActivePlayer = -1
-			return
-		}
-
-		// Very first call of state? Initialize first round but do not play for any BOTs
-		if state.Round == 0 {
+			state.gameOver = false
 			state.newRound()
-			return
 		}
+		return
+	}
 
-		//isHumanPlayer := state.ActivePlayer == state.clientPlayer
+	// Check if only one player is left
+	playersLeft := 0
+	for _, player := range state.Players {
+		if player.Status == STATUS_PLAYING {
+			playersLeft++
+		}
+	}
 
-		if state.gameOver {
+	// If only one player is left, just end the game now
+	if playersLeft == 1 {
+		state.endGame(false)
+		return
+	}
 
-			// Create a new game if the end game delay is past
-			if int(time.Until(state.moveExpires).Seconds()) < 0 {
-				state.dropInactivePlayers(false, false)
-				state.Round = 0
-				state.Pot = 0
-				state.gameOver = false
+	// Check if we should start the next round. One of the following must be true
+	// 1. We got back to the player who made the most recent bet/raise
+	// 2. There were checks/folds around the table
+	if state.ActivePlayer > -1 {
+		if (state.currentBet > 0 && state.Players[state.ActivePlayer].Bet == state.currentBet) ||
+			(state.currentBet == 0 && state.Players[state.ActivePlayer].Move != "") {
+			if state.Round == 4 {
+				state.endGame(false)
+			} else {
 				state.newRound()
 			}
 			return
 		}
+	}
 
-		// Check if only one player is left
-		playersLeft := 0
-		for _, player := range state.Players {
-			if player.Status == STATUS_PLAYING {
-				playersLeft++
-			}
-		}
-
-		// If only one player is left, just end the game now
-		if playersLeft == 1 {
-			state.endGame(false)
+	// Return if the move timer has not expired
+	// Check timer if no active player, or the active player hasn't already left
+	if state.ActivePlayer == -1 || state.Players[state.ActivePlayer].Status != STATUS_LEFT {
+		moveTimeRemaining := int(time.Until(state.moveExpires).Seconds())
+		if moveTimeRemaining > 0 {
 			return
 		}
+	}
 
-		// Check if we should start the next round. One of the following must be true
-		// 1. We got back to the player who made the most recent bet/raise
-		// 2. There were checks/folds around the table
-		if state.ActivePlayer > -1 {
-			if (state.currentBet > 0 && state.Players[state.ActivePlayer].Bet == state.currentBet) ||
-				(state.currentBet == 0 && state.Players[state.ActivePlayer].Move != "") {
-				if state.Round == 4 {
-					state.endGame(false)
-				} else {
-					state.newRound()
-				}
-				return
-			}
+	// If there is no active player, we are done
+	if state.ActivePlayer < 0 {
+		return
+	}
+
+	// Edge cases
+	// - player leaves when it is their move - skip over them
+	// - player's turn but they are waiting (out of this hand)
+	if state.Players[state.ActivePlayer].Status == STATUS_LEFT ||
+		state.Players[state.ActivePlayer].Status == STATUS_WAITING {
+		state.nextValidPlayer()
+		return
+	}
+
+	// Force a move for this player or BOT if they are in the game and have not folded
+	if state.Players[state.ActivePlayer].Status == STATUS_PLAYING {
+		cards := state.Players[state.ActivePlayer].cards
+		moves := state.getValidMoves()
+
+		// Default to FOLD
+		choice := 0
+
+		// Never fold if CHECK is an option. This applies to forced player moves as well as bots
+		if len(moves) > 1 && moves[1].Move == "CH" {
+			choice = 1
 		}
 
-		// Return if the move timer has not expired
-		// Check timer if no active player, or the active player hasn't already left
-		if state.ActivePlayer == -1 || state.Players[state.ActivePlayer].Status != STATUS_LEFT {
-			moveTimeRemaining := int(time.Until(state.moveExpires).Seconds())
-			if moveTimeRemaining > 0 {
-				return
-			}
-		}
+		// If this is a bot, pick the best move using some simple logic (sometimes random)
+		if state.Players[state.ActivePlayer].isBot {
 
-		// If there is no active player, we are done
-		if state.ActivePlayer < 0 {
-			return
-		}
+			// Potential TODO: If on round 5 and check is not an option, fold if there is a visible hand that beats the bot's hand.
+			//if len(cards) == 5 && len(moves) > 1 && moves[1].Move == "CH" {}
 
-		// Edge cases
-		// - player leaves when it is their move - skip over them
-		// - player's turn but they are waiting (out of this hand)
-		if state.Players[state.ActivePlayer].Status == STATUS_LEFT ||
-			state.Players[state.ActivePlayer].Status == STATUS_WAITING {
-			state.nextValidPlayer()
-			return
-		}
-
-		// Force a move for this player or BOT if they are in the game and have not folded
-		if state.Players[state.ActivePlayer].Status == STATUS_PLAYING {
-			cards := state.Players[state.ActivePlayer].cards
-			moves := state.getValidMoves()
-
-			// Default to FOLD
-			choice := 0
-
-			// Never fold if CHECK is an option. This applies to forced player moves as well as bots
-			if len(moves) > 1 && moves[1].Move == "CH" {
+			// Hardly ever fold early if a BOT has an jack or higher.
+			if state.Round < 3 && len(moves) > 1 && rand.Intn(3) > 0 && slices.ContainsFunc(cards, func(c card) bool { return c.value > 10 }) {
 				choice = 1
 			}
 
-			// If this is a bot, pick the best move using some simple logic (sometimes random)
-			if state.Players[state.ActivePlayer].isBot {
-
-				// Potential TODO: If on round 5 and check is not an option, fold if there is a visible hand that beats the bot's hand.
-				//if len(cards) == 5 && len(moves) > 1 && moves[1].Move == "CH" {}
-
-				// Hardly ever fold early if a BOT has an jack or higher.
-				if state.Round < 3 && len(moves) > 1 && rand.Intn(3) > 0 && slices.ContainsFunc(cards, func(c card) bool { return c.value > 10 }) {
-					choice = 1
-				}
-
-				// Likely don't fold if BOT has a pair or better
-				rank := getRank(cards)
-				if rank[0] < 300 && rand.Intn(20) > 0 {
-					choice = 1
-				}
-
-				// Don't fold if BOT has a 2 pair or better
-				if rank[0] < 200 {
-					choice = 1
-				}
-
-				// Raise the bet if three of a kind or better
-				if len(moves) > 2 && rank[0] < 312 && state.currentBet < LOW {
-					choice = 2
-				} else if len(moves) > 2 && state.getPlayerWithBestVisibleHand(true) == state.ActivePlayer && state.currentBet < HIGH && (rank[0] < 306) {
-					choice = len(moves) - 1
-				} else {
-
-					// Consider bet/call/raise most of the time
-					if len(moves) > 1 && rand.Intn(3) > 0 && (len(cards) > 2 ||
-						cards[0].value == cards[1].value ||
-						math.Abs(float64(cards[1].value-cards[0].value)) < 3 ||
-						cards[0].value > 8 ||
-						cards[1].value > 5) {
-
-						// Avoid endless raises
-						if state.currentBet >= 20 || rand.Intn(3) > 0 {
-							choice = 1
-						} else {
-							choice = rand.Intn(len(moves)-1) + 1
-						}
-
-					}
-				}
+			// Likely don't fold if BOT has a pair or better
+			rank := getRank(cards)
+			if rank[0] < 300 && rand.Intn(20) > 0 {
+				choice = 1
 			}
 
-			// Bounds check - clamp the move to the end of the array if a higher move is desired.
-			// This may occur if a bot wants to call, but cannot, due to limited funds.
-			if choice > len(moves)-1 {
+			// Don't fold if BOT has a 2 pair or better
+			if rank[0] < 200 {
+				choice = 1
+			}
+
+			// Raise the bet if three of a kind or better
+			if len(moves) > 2 && rank[0] < 312 && state.currentBet < LOW {
+				choice = 2
+			} else if len(moves) > 2 && state.getPlayerWithBestVisibleHand(true) == state.ActivePlayer && state.currentBet < HIGH && (rank[0] < 306) {
 				choice = len(moves) - 1
+			} else {
+
+				// Consider bet/call/raise most of the time
+				if len(moves) > 1 && rand.Intn(3) > 0 && (len(cards) > 2 ||
+					cards[0].value == cards[1].value ||
+					math.Abs(float64(cards[1].value-cards[0].value)) < 3 ||
+					cards[0].value > 8 ||
+					cards[1].value > 5) {
+
+					// Avoid endless raises
+					if state.currentBet >= 20 || rand.Intn(3) > 0 {
+						choice = 1
+					} else {
+						choice = rand.Intn(len(moves)-1) + 1
+					}
+
+				}
 			}
-
-			move := moves[choice]
-
-			state.performMove(move.Move, true)
 		}
-	*/
+
+		// Bounds check - clamp the move to the end of the array if a higher move is desired.
+		// This may occur if a bot wants to call, but cannot, due to limited funds.
+		if choice > len(moves)-1 {
+			choice = len(moves) - 1
+		}
+
+		move := moves[choice]
+
+		state.performMove(move.Move, true)
+	}
+
 }
 
 func (state *GameState) clientLeave() {
-	/*
 
-		if state.clientPlayer < 0 {
-			return
+	if state.clientPlayer < 0 {
+		return
+	}
+	player := &state.Players[state.clientPlayer]
+
+	player.Status = STATUS_LEFT
+	player.Move = "LEFT"
+
+	// Check if no human players are playing. If so, end the game
+	playersLeft := 0
+	for _, player := range state.Players {
+		if player.Status == STATUS_PLAYING && !player.isBot {
+			playersLeft++
 		}
-		player := &state.Players[state.clientPlayer]
+	}
 
-		player.Status = STATUS_LEFT
-		player.Move = "LEFT"
+	// If the last player dropped, stop the game and update the lobby
+	if playersLeft == 0 {
+		state.endGame(true)
+		state.dropInactivePlayers(false, false)
+		return
+	}
 
-		// Check if no human players are playing. If so, end the game
-		playersLeft := 0
-		for _, player := range state.Players {
-			if player.Status == STATUS_PLAYING && !player.isBot {
-				playersLeft++
-			}
-		}
-
-		// If the last player dropped, stop the game and update the lobby
-		if playersLeft == 0 {
-			state.endGame(true)
-			state.dropInactivePlayers(false, false)
-			return
-		}
-	*/
 }
 
 func (state *GameState) updateLobby() {
@@ -500,42 +500,41 @@ func (state *GameState) getHumanPlayerCountInfo() (int, int) {
 }
 
 func (state *GameState) setClientPlayerByName(playerName string) {
-	/*
 
-		// If no player name was passed, simply return. This is an anonymous viewer.
-		if len(playerName) == 0 {
-			state.clientPlayer = -1
-			return
+	// If no player name was passed, simply return. This is an anonymous viewer.
+	if len(playerName) == 0 {
+		state.clientPlayer = -1
+		return
+	}
+	state.clientPlayer = slices.IndexFunc(state.Players, func(p Player) bool { return strings.EqualFold(p.Name, playerName) })
+
+	// If a new player is joining, remove any old players that timed out to make space
+	if state.clientPlayer < 0 {
+		// Drop any players that left to make space
+		state.dropInactivePlayers(false, true)
+	}
+
+	// Add new player if there is room
+	if state.clientPlayer < 0 && len(state.Players) < 8 {
+		state.addPlayer(playerName, false)
+		state.clientPlayer = len(state.Players) - 1
+
+		// Set the ping for this player so they are counted as active when updating the lobby
+		state.playerPing()
+
+		// Update the lobby with the new state (new player joined)
+		state.updateLobby()
+	}
+
+	// Extra logic if a player is requesting
+	if state.clientPlayer > 0 {
+
+		// In case a player returns while they are still in the "LEFT" status (before the current game ended), add them back in as waiting
+		if state.Players[state.clientPlayer].Status == STATUS_LEFT {
+			state.Players[state.clientPlayer].Status = STATUS_WAITING
 		}
-		state.clientPlayer = slices.IndexFunc(state.Players, func(p Player) bool { return strings.EqualFold(p.Name, playerName) })
+	}
 
-		// If a new player is joining, remove any old players that timed out to make space
-		if state.clientPlayer < 0 {
-			// Drop any players that left to make space
-			state.dropInactivePlayers(false, true)
-		}
-
-		// Add new player if there is room
-		if state.clientPlayer < 0 && len(state.Players) < 8 {
-			state.addPlayer(playerName, false)
-			state.clientPlayer = len(state.Players) - 1
-
-			// Set the ping for this player so they are counted as active when updating the lobby
-			state.playerPing()
-
-			// Update the lobby with the new state (new player joined)
-			state.updateLobby()
-		}
-
-		// Extra logic if a player is requesting
-		if state.clientPlayer > 0 {
-
-			// In case a player returns while they are still in the "LEFT" status (before the current game ended), add them back in as waiting
-			if state.Players[state.clientPlayer].Status == STATUS_LEFT {
-				state.Players[state.clientPlayer].Status = STATUS_WAITING
-			}
-		}
-	*/
 }
 
 func createGameState(playerCount int, registerLobby bool) *GameState {
@@ -549,6 +548,7 @@ func createGameState(playerCount int, registerLobby bool) *GameState {
 			deck = append(deck, card{cardvalue: value + 1, cardname: name})
 		}
 	}
+
 	/* Eric's Create deck code
 	deck := []card{}
 
@@ -576,7 +576,7 @@ func createGameState(playerCount int, registerLobby bool) *GameState {
 	if playerCount < 2 {
 		state.LastResult = WAITING_MESSAGE
 	}
-
+	fmt.Println(state.deck)
 	return &state
 }
 

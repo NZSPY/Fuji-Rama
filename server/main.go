@@ -54,7 +54,7 @@ func main() {
 
 	router := gin.Default()
 
-	router.Use(cors.Default()) // All origins allowed by default (added this for testing via java script)
+	router.Use(cors.Default()) // All origins allowed by default (added this for testing via java script as it wouldn't work with it)
 
 	router.GET("/view", apiView)
 
@@ -72,7 +72,7 @@ func main() {
 	router.SetTrustedProxies(nil) // Disable trusted proxies because Gin told me to do it.. (neeed to investigate this further)
 	//	router.GET("/REFRESHLOBBY", apiRefresh)
 
-	initializeGameServer()
+	//initializeGameServer()
 	initializeTables()
 
 	router.Run(":" + port)
@@ -257,6 +257,7 @@ func initializeTables() {
 }
 
 func createTable(serverName string, table string, botCount int, registerLobby bool) {
+
 	state := createGameState(botCount, registerLobby)
 	state.table = table
 	state.serverName = serverName
