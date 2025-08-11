@@ -3,7 +3,7 @@
 ' @author  Simon Young
 
 
-' Disable BASIC on XL/XE to make more memory available. (found in Erics code  don't know if I need it or not)
+' Disable BASIC on XL/XE to make more memory available. (found in Erics 5card code don't know if I need it or not)
 if dpeek(741)-$BC00<0
   ' Disable BASIC
   pause: poke $D301, peek($D301) ! 2: poke $3F8, 1
@@ -14,11 +14,13 @@ endif
 ' Fuji-Net Setup Variblies 
 UNIT=1
 dim responseBuffer(1023) BYTE
-'RESULT$=""
 JSON_MODE=1
-URL$="N:HTTP://192.168.68.100:8080/tables"
+URL$=""
+BaseURL$="N:HTTP://192.168.68.100:8080"
 QUERY$=""
-
+JSON$="/tables"
+URL$=BaseURL$
+URL$=+JSON$
 ' Initialize strings - this reserves their space in memory so NInput can write to them
 Dim  TableID$(6),TableName$(6),TableCurrentPlayers$(6),TableMaxPlayers$(6)
 
@@ -72,16 +74,24 @@ inc y
 next a
 ? " **************************************"
 
-
+GET K
+JSON$="/state?player=Simon&table=ai5"
+URL$=BaseURL$
+URL$=+JSON$
+@CallFujiNet
 ' all done for now exit the program
+NCLOSE UNIT ' Close encase it's still open
 ? "done"
 GET K
-NCLOSE UNIT
+
 
 
 '-------------------------------------------------------------
 ' PROCEDURES to get Json data and load into the Var Result
 'open the API connect and setup for Read JSON file
+'Code lifted from the Introduction to Fuji-net for Atari Users
+'by Thomas Cherryhomes
+'(MASTODON Example)
 '--------------------------------------------------------------
 PROC CallFujiNet
 @openconnection
@@ -92,6 +102,7 @@ PRINT "Could not parse JSON."
 @nprinterror
 GET K
 ENDIF
+@doJSON
 ENDPROC
 
 
@@ -109,11 +120,11 @@ PROC nsetchannelmode ' Set the channel mode to the JSON_mode
 SIO $71, UNIT, $FC, $00, 0, $1F, 0, 12, JSON_MODE
 ENDPROC
 
-PROC nparsejson ' send Parse to the FujiNet, so it parses the JSON value set by teh URL$
+PROC nparsejson ' send Parse to the FujiNet, so it parses the JSON value set by the URL$
 SIO $71, UNIT, $50, $00, 0, $1f, 0, 12, 0
 ENDPROC
 
-PROC njsonquery ' Querey the JSON data that has been parsesed base on the attributes in $query
+PROC njsonquery ' Query the JSON data that has been parsesed base on the attributes in $query
 SIO $71, UNIT, $51, $80, &query$+1, $1f, 256, 12, 0
 ENDPROC
 
@@ -122,7 +133,7 @@ NSTATUS UNIT
 PRINT "ERROR- "; PEEK($02ED)
 ENDPROC
 
-PROC getresult 
+PROC DoJSON 
 @njsonquery
 NSTATUS UNIT
 IF PEEK($02ED) > 128
@@ -136,12 +147,16 @@ ENDPROC
 
 
 ' ============================================================================
-' From Eric Carr
+' Helper code from  Eric Carr
 ' (N Helper) Gets the entire response from the specified unit into the provided buffer index for NInput to read from.
 ' WARNING! No check is made if buffer length is long enough to hold the FujiNet payload.
+' ============================================================================
+
 PROC NInputInit __NI_unit __NI_index
+NSTATUS __NI_unit
   __NI_bufferEnd = __NI_index + DPEEK($02EA)
   NGET __NI_unit, __NI_index, __NI_bufferEnd - __NI_index
+  NCLOSE __NI_unit ' Close since we are done reading
 ENDPROC
 
 ' ============================================================================

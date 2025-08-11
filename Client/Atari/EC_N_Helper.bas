@@ -1,3 +1,14 @@
+
+' Some code snippets from Eric Carr
+' This is not a workign application, just a collection of code that can be used to read JSON from FujiNET
+' many thnaks to Eric for the help :-)
+
+' ------------------------------------------------------------------------------------
+' NInputInit - Gets the entire response from FujiNet into specified array
+' NInput - Call repeatedly to read the next key or value into a string. Similar to Atari BASIC: INPUT #UNIT, MyString$
+' ------------------------------------------------------------------------------------
+' You can use it like this:
+
 ' Receive buffer
 dim responseBuffer(1023) BYTE
 
@@ -31,6 +42,12 @@ do
   ' If read last field of a table, increment index
   if key$="m" then INC INDEX
 loop 
+
+' ------------------------------------------------------------------------------------
+
+' Or if you know the exact number of fields (like list of tables), 
+' you can read directly into table values and ignore checking the key
+
 
 ' Receive buffer
 dim responseBuffer(1023) BYTE
@@ -66,12 +83,12 @@ loop
 
 
 ' ============================================================================
-' From Eric Carr
 ' (N Helper) Gets the entire response from the specified unit into the provided buffer index for NInput to read from.
 ' WARNING! No check is made if buffer length is long enough to hold the FujiNet payload.
 PROC NInputInit __NI_unit __NI_index
   __NI_bufferEnd = __NI_index + DPEEK($02EA)
   NGET __NI_unit, __NI_index, __NI_bufferEnd - __NI_index
+  NCLOSE __NI_unit ' Close since we are done reading
 ENDPROC
 
 ' ============================================================================
