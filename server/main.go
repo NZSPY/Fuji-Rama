@@ -1,272 +1,182 @@
 package main
 
 import (
-	"fmt"
-	"log"
-	"os"
-	"strings"
-	"sync"
-	"time"
+	"math/rand"
+	"net/http"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
 
-// A sync.Map is used to save the state at the end of a request without needing synchronization
-// If a request errors out in the middle, it will not save the state, avoiding an invalid,
-// partially updated state.
-// A mutex is used so a given table can only be accessed by a single request at a time
-var stateMap sync.Map
-var tables []GameTable = []GameTable{}
-
-var tableMutex KeyedMutex
-
-type KeyedMutex struct {
-	mutexes sync.Map // Zero value is empty and ready for use
+type GameState struct {
+	Table    GameTable
+	Playing  bool
+	Maindeck Deck
+	NumCards int
+	Discard  Card
+	Players  Player
 }
 
-func (m *KeyedMutex) Lock(key string) func() {
-	key = strings.ToLower(key)
-	value, _ := m.mutexes.LoadOrStore(key, &sync.Mutex{})
-	mtx := value.(*sync.Mutex)
-	mtx.Lock()
-	return func() { mtx.Unlock() }
+var gameStates = make([]GameState, 7)
+
+type GameTable struct {
+	Table      string `json:"t"`
+	Name       string `json:"n"`
+	CurPlayers int    `json:"p"` // human players
+	MaxPlayers int    `json:"m"` // human players
+}
+
+var tables = []GameTable{
+	{Table: "ai1", Name: "AI Room - 1 bots", CurPlayers: 0, MaxPlayers: 5},
+	{Table: "ai2", Name: "AI Room - 2 bots", CurPlayers: 0, MaxPlayers: 4},
+	{Table: "ai3", Name: "AI Room - 3 bots", CurPlayers: 0, MaxPlayers: 3},
+	{Table: "ai4", Name: "AI Room - 4 bots", CurPlayers: 0, MaxPlayers: 2},
+	{Table: "ai5", Name: "AI Room - 5 bots", CurPlayers: 0, MaxPlayers: 1},
+	{Table: "river", Name: "The River", CurPlayers: 0, MaxPlayers: 6},
+	{Table: "cave", Name: "Cave of Caerbannog", CurPlayers: 0, MaxPlayers: 6},
+}
+
+type Status int
+
+const (
+	STATUS_WAITING Status = 0
+	STATUS_PLAYING Status = 1
+	STATUS_FOLDED  Status = 2
+	STATUS_LEFT    Status = 3
+)
+
+// Deck represents a collection of cards.
+type Deck []Card
+
+// card represents a playing card with it's name and value
+type Card struct {
+	Cardvalue int
+	Cardname  string
+}
+
+type Player struct {
+	Name          string
+	Human         bool
+	Status        Status
+	Whitecounters int
+	Blackcounters int
+	Score         int
+	Hand          Deck
+	Playorder     int
+	Lastplayer    bool // Indicates if this player was the last to play or fold
 }
 
 func main() {
-	log.Print("Starting server...")
-
-	// Set environment flags
-	UpdateLobby = os.Getenv("GO_PROD") == "1"
-
-	if UpdateLobby {
-		log.Printf("This instance will update the lobby at " + LOBBY_ENDPOINT_UPSERT)
-		gin.SetMode(gin.ReleaseMode)
+	// Initialize the tables and game states
+	for i := 0; i < len(gameStates); i++ {
+		gameStates[i] = GameState{Table: tables[i], Playing: false, Maindeck: Deck{}, NumCards: 0, Discard: Card{}, Players: Player{}}
+		SetupTable(i) // Initialize each table with a new deck and shuffle it
 	}
-
-	// Determine port for HTTP service.
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
-	}
-
-	log.Printf("Listing on port %s", port)
 
 	router := gin.Default()
+	router.Use(cors.Default())         // All origins allowed by default (added this for testing via java script as it wouldn't work with it)
+	router.GET("/tables", getTables)   // Get the list of tables
+	router.GET("/view", viewGameState) // View the game state for a specific table
+	router.GET("/state", getGameState)
+	router.GET("/draw", drawCard)
 
-	router.Use(cors.Default()) // All origins allowed by default (added this for testing via java script as it wouldn't work with it)
+	// Set up router and start server
 
-	router.GET("/view", apiView)
-
-	router.GET("/state", apiState)
-	router.POST("/state", apiState)
-
-	router.GET("/move/:move", apiMove)
-	router.POST("/move/:move", apiMove)
-
-	router.GET("/leave", apiLeave)
-	router.POST("/leave", apiLeave)
-
-	router.GET("/tables", apiTables)
-	router.GET("/updateLobby", apiUpdateLobby)
 	router.SetTrustedProxies(nil) // Disable trusted proxies because Gin told me to do it.. (neeed to investigate this further)
-	//	router.GET("/REFRESHLOBBY", apiRefresh)
-
-	//initializeGameServer()
-	initializeTables()
-
-	router.Run(":" + port)
+	//router.Run("localhost:8080")
+	router.Run("192.168.68.100:8080") // put your server address here
 }
 
-// Api Request steps
-// 1. Get state
-// 2. Game Logic
-// 3. Save state
-// 4. Return client centric state
-
-// request pattern
-// 1. get state (locks the state)
-//   A. Start a function that updates table state
-//   B. Defer unlocking the state until the current "state updating" function is complete
-//   C. If state is not nil, perform logic
-// 2. Serialize and return results
-
-// Executes a move for the client player, if that player is currently active
-func apiMove(c *gin.Context) {
-
-	state, unlock := getState(c)
-	func() {
-		defer unlock()
-
-		if state != nil {
-			// Access check - only move if the client is the active player
-			if state.clientPlayer == state.ActivePlayer {
-				move := strings.ToUpper(c.Param("move"))
-				state.performMove(move)
-				saveState(state)
-				state = state.createClientState()
-			}
-		}
-	}()
-
-	serializeResults(c, state)
+// getTables responds with the list of all tables  as JSON.
+func getTables(c *gin.Context) {
+	c.JSON(http.StatusOK, tables)
 }
 
-// Steps forward and returns the updated state
-func apiState(c *gin.Context) {
-	hash := c.Query("hash")
-	state, unlock := getState(c)
+// getGameState retrieves the game state for a specific table.
+// This function is a placeholder for future implementation.
+func getGameState(c *gin.Context) {
+	c.JSON(http.StatusOK, "Commign soon - game state retrieval not yet implemented")
+}
 
-	func() {
-		defer unlock()
+// View the State retrieves the game state for a specific table or all if none specified.
+func viewGameState(c *gin.Context) {
+	tableIndex := -1
+	ok := false
+	tableIndex, ok = getTableIndex(c)
+	if ok {
+		c.IndentedJSON(http.StatusOK, gameStates[tableIndex]) // Return the game state for the specified table
+	} else {
+		c.IndentedJSON(http.StatusOK, gameStates) // Return all game states if no specific table is requested
+	}
+}
 
-		if state != nil {
-			if state.clientPlayer >= 0 {
-				state.runGameLogic()
-				saveState(state)
-			}
-			state = state.createClientState()
+// NewDeck creates a new Llama 56-card deck.
+func NewDeck() []Card {
+	deck := make([]Card, 56)
+
+	cardNames := []string{"One", "Two", "Three", "Four", "Five", "Six", "Llama"}
+
+	currentCard := 0
+	for value := 1; value <= 7; value++ {
+		for i := 0; i < 8; i++ {
+			deck[currentCard] = Card{Cardvalue: value, Cardname: cardNames[value-1]}
+			currentCard++
 		}
-	}()
+	}
+	return deck
+}
 
-	// Check if passed in hash matches the state
-	if state != nil && len(hash) > 0 && hash == state.hash {
-		serializeResults(c, "1")
+func SetupTable(tableIndex int) {
+	if tableIndex < 0 || tableIndex >= len(gameStates) {
+		return // Invalid table index
+	}
+	gameStates[tableIndex].Maindeck = NewDeck()
+	shuffleDeck(gameStates[tableIndex].Maindeck)
+	gameStates[tableIndex].Discard = gameStates[tableIndex].Maindeck[55] // Set the discard to the last card in the deck
+	gameStates[tableIndex].NumCards = 55                                 // 55 cards left in the deck after dealing one to discard
+}
+
+// shuffleDeck shuffles the deck using the Fisher-Yates algorithm.
+func shuffleDeck(deck []Card) {
+	for i := len(deck) - 1; i > 0; i-- {
+		j := rand.Intn(i + 1)
+		deck[i], deck[j] = deck[j], deck[i]
+	}
+}
+
+// drawCard handles the drawing of a card from the deck.
+func drawCard(c *gin.Context) {
+	ok := false
+	tableIndex := -1
+	tableIndex, ok = getTableIndex(c)
+	if !ok {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid table index"})
 		return
 	}
 
-	serializeResults(c, state)
+	if gameStates[tableIndex].NumCards == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "No cards left in the deck"})
+		return
+	}
+	gameStates[tableIndex].Discard = gameStates[tableIndex].Maindeck[gameStates[tableIndex].NumCards] // Set the discard to the last card in the deck
+	gameStates[tableIndex].NumCards--
+	c.JSON(http.StatusOK, gameStates[tableIndex].Discard)
 }
 
-// Drop from the specified table
-func apiLeave(c *gin.Context) {
-	state, unlock := getState(c)
-
-	func() {
-		defer unlock()
-
-		if state != nil {
-			if state.clientPlayer >= 0 {
-				state.clientLeave()
-				state.updateLobby()
-				saveState(state)
-			}
-		}
-	}()
-	serializeResults(c, "bye")
-}
-
-// Returns a view of the current state without causing it to change. For debugging side-by-side with a client
-func apiView(c *gin.Context) {
-
-	state, unlock := getState(c)
-	func() {
-		defer unlock()
-
-		if state != nil {
-			state = state.createClientState()
-		}
-	}()
-
-	serializeResults(c, state)
-}
-
-// Returns a list of real tables with player/slots for the client
-// If passing "dev=1", will return developer testing tables instead of the live tables
-func apiTables(c *gin.Context) {
-	returnDevTables := c.Query("dev") == "1"
-
-	tableOutput := []GameTable{}
-	for _, table := range tables {
-		value, ok := stateMap.Load(table.Table)
-		if ok {
-			state := value.(*GameState)
-			if (returnDevTables && !state.registerLobby) || (!returnDevTables && state.registerLobby) {
-				humanPlayerSlots, humanPlayerCount := state.getHumanPlayerCountInfo()
-				table.CurPlayers = humanPlayerCount
-				table.MaxPlayers = humanPlayerSlots
-				tableOutput = append(tableOutput, table)
+// find the table index from the query parameter
+// Returns the table index and a boolean indicating a vaild table was found
+func getTableIndex(c *gin.Context) (int, bool) {
+	tableIndex := -1
+	ok := false
+	if tableStr := c.Query("table"); tableStr != "" {
+		// Find the table index by matching the table name
+		for i, t := range tables {
+			if t.Table == tableStr {
+				tableIndex = i
+				ok = true
+				break
 			}
 		}
 	}
-	serializeResults(c, tableOutput)
-}
-
-// Forces an update of all tables to the lobby - useful for adhoc use if the Lobby restarts or loses info
-func apiUpdateLobby(c *gin.Context) {
-	for _, table := range tables {
-		value, ok := stateMap.Load(table.Table)
-		if ok {
-			state := value.(*GameState)
-			state.updateLobby()
-		}
-	}
-
-	serializeResults(c, "Lobby Updated")
-}
-
-// Gets the current game state for the specified table and adds the player id of the client to it
-func getState(c *gin.Context) (*GameState, func()) {
-	table := c.Query("table")
-
-	if table == "" {
-		table = "default"
-	}
-	table = strings.ToLower(table)
-	player := c.Query("player")
-
-	// Lock by the table so to avoid multiple threads updating the same table state
-	unlock := tableMutex.Lock(table)
-
-	// Load state
-	value, ok := stateMap.Load(table)
-
-	var state *GameState
-
-	if ok {
-		stateCopy := *value.(*GameState)
-		state = &stateCopy
-		state.setClientPlayerByName(player)
-	}
-
-	return state, unlock
-}
-
-func saveState(state *GameState) {
-	stateMap.Store(state.table, state)
-}
-
-func initializeTables() {
-
-	// Create the real servers (hard coded for now)
-	// Llama game rooms
-	createTable("The River", "river", 0, true)
-	createTable("Cave of Caerbannog", "cave", 0, true)
-	createTable("AI Room - 2 bots", "ai2", 2, true)
-	createTable("AI Room - 3 bots", "ai3", 3, true)
-	createTable("AI Room - 4 bots", "ai4", 4, true)
-	createTable("AI Room - 5 bots", "ai5", 5, true)
-
-	// For client developers, create hidden tables for each # of bots (for ease of testing with a specific # of players in the game)
-	// These will not update the lobby
-
-	for i := 1; i < 6; i++ {
-		createTable(fmt.Sprintf("Dev Room - %d bots", i), fmt.Sprintf("dev%d", i), i, false)
-	}
-
-}
-
-func createTable(serverName string, table string, botCount int, registerLobby bool) {
-
-	state := createGameState(botCount, registerLobby)
-	state.table = table
-	state.serverName = serverName
-	saveState(state)
-	state.updateLobby()
-
-	tables = append([]GameTable{{Table: table, Name: serverName}}, tables...)
-
-	if UpdateLobby {
-		time.Sleep(time.Millisecond * time.Duration(100))
-	}
+	return tableIndex, ok
 }

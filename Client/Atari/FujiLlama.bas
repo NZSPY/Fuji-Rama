@@ -67,21 +67,19 @@ loop
 
 'now display the data on the welcome page 
 X=35:Y=7
-for a=0 to 5
+for a=0 to 6
 ? " *";TableName$(a);
 Position X,Y: ? TableCurrentPlayers$(a);"/";TableMaxPlayers$(a);"*"
 inc y
 next a
 ? " **************************************"
 
-GET K
-JSON$="/state?player=Simon&table=ai5"
-URL$=BaseURL$
-URL$=+JSON$
-@CallFujiNet
+? " * Enter the table number to join it  *"
+? " **************************************"
 ' all done for now exit the program
 NCLOSE UNIT ' Close encase it's still open
-? "done"
+? "Coming soon - rest of game not yet implemented"
+? "Press any key to exit"
 GET K
 
 

@@ -1,6 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
     const tableBody = document.getElementById('dataTableBody');
-    const apiUrl = 'http://127.0.0.1:8080/tables'; // Replace with your actual API endpoint
+    const apiUrl = 'http://192.168.68.100:8080/tables'; // Replace with your actual API endpoint
 
     async function fetchDataAndPopulateTable() {
         try {
