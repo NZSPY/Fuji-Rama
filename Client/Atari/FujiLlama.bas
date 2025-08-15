@@ -19,12 +19,9 @@ URL$=""
 BaseURL$="N:HTTP://192.168.68.100:8080"
 QUERY$=""
 JSON$="/tables"
-URL$=BaseURL$
-URL$=+JSON$
+dummy$=""
 ' Initialize strings - this reserves their space in memory so NInput can write to them
 Dim  TableID$(6),TableName$(6),TableCurrentPlayers$(6),TableMaxPlayers$(6),TableStatus$(6)
-
-dummy$=""
 for i=0 to 6
  TableID$(i)=""
  TableName$(i)=""
@@ -33,6 +30,35 @@ for i=0 to 6
  TableStatus$(i)=""
 next i
 
+ok=0
+do 
+  ' Draw the welcome screen and display the tables available to join
+  @welcome
+
+  ' Check if the player has joined a table, if not then exit
+  @checkJoined
+
+  ' If the player has joined a table, then exit the loop
+  if ok=1 then exit
+loop
+
+
+
+' all done for now exit the program
+NCLOSE UNIT ' Close encase it's still open
+? "          Coming soon !!" 
+? "  - rest of game not yet implemented"
+? "    Press any key to exit"
+GET K
+' Exit the program
+END
+
+
+
+
+
+proc welcome
+' This procedure draws the welcome screen and displays the tables available to join
 ' Draw the opening screen 
 GRAPHICS 0
 SETCOLOR 2,0,0
@@ -41,12 +67,13 @@ POKE 82,0 'set margin to zero
 ?
 ? "      *** Welcome to Fuji-Llama ***    "
 ?
-? " Choose a table to join"
+
 ? " **************************************"
 ? " *Table Name                   Players*"
 ? " **************************************"
 
 
+JSON$="/tables"
 @CallFujiNet
 
 ' Initialize reading the api response
@@ -68,22 +95,87 @@ loop
 
 
 'now display the data on the welcome page 
-X=35:Y=7
+X=33:Y=6
 for a=0 to 6
-? " *";TableName$(a);
-Position X,Y: ? TableCurrentPlayers$(a);"/";TableMaxPlayers$(a);"*"
+? " *";(A+1);",";TableName$(a);
+Position X,Y: ? TableStatus$(a)[1,1];" ";TableCurrentPlayers$(a);"/";TableMaxPlayers$(a);"*"
 inc y
 next a
 ? " **************************************"
 
-? " * Enter the table number to join it  *"
+input " Enter your name ?";_name$
 ? " **************************************"
-' all done for now exit the program
-NCLOSE UNIT ' Close encase it's still open
-? "Coming soon - rest of game not yet implemented"
-? "Press any key to exit"
-GET K
 
+
+
+
+input " Enter the table number to join it ?";_TN
+? " **************************************"
+
+_T$=""
+if _TN=1
+_T$="ai1"
+elif _TN=2
+_T$="ai2"
+elif _TN=3
+_T$="ai3"
+elif _TN=4
+_T$="ai4"
+elif _TN=5
+_T$="ai5"
+elif _TN=6
+_T$="river"
+elif _TN=7
+_T$="Cave"
+Endif
+
+
+JSON$="/join?table="
+JSON$=+_T$
+JSON$=+"&player="
+JSON$=+_name$
+
+
+? "Connecting to FujiNet at "
+
+? "Please wait, this may take a few seconds"
+? "          ..."
+
+@CallFujiNet ' Call the FujiNet API to join the table
+@NInputInit UNIT, &responseBuffer ' Initialize reading the api response
+@NInput &dummy$ ' Read the response from the FujiNet API
+
+endproc
+
+
+
+Proc checkJoined
+' Check if the player has joined a table, if not then exit
+ok = 1
+
+if len(dummy$) > 0 then
+_ERR=VAL(dummy$[5,1])
+  if _ERR=1 
+    ok = 0
+    ? "You need to specify a valid table and player name to join"
+  elif _ERR=2 
+    ok = 0
+    ? "You need to supply a player name to join a table"
+  elif _ERR=3 
+    ok = 0
+    ? "Sorry: ";_name$;" someone is already at table with that name, please try a different table and or name"
+  elif _ERR=4 
+    ok = 0
+    ? "Sorry: ";_name$;" table ";_T$;" has a game in progress, please try a different table"
+  elif _ERR=5 
+    ok = 0
+    ? "Sorry: ";_name$;" table ";_T$;" is full, please try a different table"
+else
+  ? "You have joined table ";_T$;" as player ";_name$
+  ok = 1
+endif
+get K
+endproc
 
 
 '-------------------------------------------------------------
@@ -94,6 +186,10 @@ GET K
 '(MASTODON Example)
 '--------------------------------------------------------------
 PROC CallFujiNet
+dummy$=""
+URL$=BaseURL$
+URL$=+JSON$
+URL$=+""$9B
 @openconnection
 @nsetchannelmode 
 @nparsejson

@@ -190,20 +190,20 @@ func joinTable(c *gin.Context) {
 
 	switch {
 	case !ok:
-		c.JSON(http.StatusPartialContent, "You need to specify a valid table and player name to join") // Notify the player to specify a table and player name
+		c.JSON(http.StatusPartialContent, "ERR(1)You need to specify a valid table and player name to join") // Notify the player to specify a table and player name
 		return
 	case newplayerName == "":
-		c.JSON(http.StatusPartialContent, "You need to supply a player name to join a table")
+		c.JSON(http.StatusPartialContent, "ERR(2)You need to supply a player name to join a table")
 		return
 	case checkPlayerName(tableIndex, newplayerName):
-		c.JSON(http.StatusConflict, "Sorry: "+newplayerName+" someone is already at table with that name ,please try a diffrent table and or name") // Notify the player name is already taken
+		c.JSON(http.StatusConflict, "ERR(3) Sorry: "+newplayerName+" someone is already at table with that name ,please try a diffrent table and or name") // Notify the player name is already taken
 		return
 	case gameStates[tableIndex].Table.Status == "playing":
-		c.JSON(http.StatusConflict, "Sorry: "+newplayerName+" table "+tables[tableIndex].Table+" has a game in progress, please try a diffrent table") // Notify the player that the table is busy
+		c.JSON(http.StatusConflict, "ERR(4) Sorry: "+newplayerName+" table "+tables[tableIndex].Table+" has a game in progress, please try a diffrent table") // Notify the player that the table is busy
 		return
 	case gameStates[tableIndex].Table.Status == "full":
 		gameStates[tableIndex].Table.Status = "full"
-		c.JSON(http.StatusConflict, "Sorry: "+newplayerName+" table "+tables[tableIndex].Table+" is full, please try a diffrent table") // Notify the player that the table is full
+		c.JSON(http.StatusConflict, "ERR(5) Sorry: "+newplayerName+" table "+tables[tableIndex].Table+" is full, please try a diffrent table") // Notify the player that the table is full
 		return
 
 	default:
@@ -215,7 +215,7 @@ func joinTable(c *gin.Context) {
 		}
 		tables[tableIndex].CurPlayers = gameStates[tableIndex].Table.CurPlayers // update the quick table view players count
 		tables[tableIndex].Status = gameStates[tableIndex].Table.Status         // update the quick table view status
-		c.JSON(http.StatusCreated, newplayerName+" joined table "+tables[tableIndex].Table)
+		c.JSON(http.StatusOK, newplayerName+" joined table "+tables[tableIndex].Table)
 	}
 }
 
