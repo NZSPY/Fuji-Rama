@@ -1,4 +1,4 @@
-module web-service-gin
+module FUJI-Llama/server
 
 go 1.24.5
 

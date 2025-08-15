@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"math/rand"
 	"net/http"
 
@@ -10,11 +11,10 @@ import (
 
 type GameState struct {
 	Table    GameTable
-	Playing  bool
-	Maindeck Deck
 	NumCards int
 	Discard  Card
-	Players  Player
+	Players  Players
+	Maindeck Deck
 }
 
 var gameStates = make([]GameState, 7)
@@ -24,16 +24,17 @@ type GameTable struct {
 	Name       string `json:"n"`
 	CurPlayers int    `json:"p"` // human players
 	MaxPlayers int    `json:"m"` // human players
+	Status     string `json:"s"` // status of the table, e.g. "waiting", "playing"
 }
 
 var tables = []GameTable{
-	{Table: "ai1", Name: "AI Room - 1 bots", CurPlayers: 0, MaxPlayers: 5},
-	{Table: "ai2", Name: "AI Room - 2 bots", CurPlayers: 0, MaxPlayers: 4},
-	{Table: "ai3", Name: "AI Room - 3 bots", CurPlayers: 0, MaxPlayers: 3},
-	{Table: "ai4", Name: "AI Room - 4 bots", CurPlayers: 0, MaxPlayers: 2},
-	{Table: "ai5", Name: "AI Room - 5 bots", CurPlayers: 0, MaxPlayers: 1},
-	{Table: "river", Name: "The River", CurPlayers: 0, MaxPlayers: 6},
-	{Table: "cave", Name: "Cave of Caerbannog", CurPlayers: 0, MaxPlayers: 6},
+	{Table: "ai1", Name: "AI Room - 1 bots", CurPlayers: 0, MaxPlayers: 5, Status: "empty"},
+	{Table: "ai2", Name: "AI Room - 2 bots", CurPlayers: 0, MaxPlayers: 4, Status: "empty"},
+	{Table: "ai3", Name: "AI Room - 3 bots", CurPlayers: 0, MaxPlayers: 3, Status: "empty"},
+	{Table: "ai4", Name: "AI Room - 4 bots", CurPlayers: 0, MaxPlayers: 2, Status: "empty"},
+	{Table: "ai5", Name: "AI Room - 5 bots", CurPlayers: 0, MaxPlayers: 1, Status: "empty"},
+	{Table: "river", Name: "The River", CurPlayers: 0, MaxPlayers: 6, Status: "empty"},
+	{Table: "cave", Name: "Cave of Caerbannog", CurPlayers: 0, MaxPlayers: 6, Status: "empty"},
 }
 
 type Status int
@@ -66,10 +67,13 @@ type Player struct {
 	Lastplayer    bool // Indicates if this player was the last to play or fold
 }
 
+// Players represents a the players at a table
+type Players []Player
+
 func main() {
 	// Initialize the tables and game states
 	for i := 0; i < len(gameStates); i++ {
-		gameStates[i] = GameState{Table: tables[i], Playing: false, Maindeck: Deck{}, NumCards: 0, Discard: Card{}, Players: Player{}}
+		gameStates[i] = GameState{Table: tables[i], Maindeck: Deck{}, NumCards: 0, Discard: Card{}, Players: Players{}}
 		SetupTable(i) // Initialize each table with a new deck and shuffle it
 	}
 
@@ -77,8 +81,9 @@ func main() {
 	router.Use(cors.Default())         // All origins allowed by default (added this for testing via java script as it wouldn't work with it)
 	router.GET("/tables", getTables)   // Get the list of tables
 	router.GET("/view", viewGameState) // View the game state for a specific table
-	router.GET("/state", getGameState)
-	router.GET("/draw", drawCard)
+	router.GET("/state", getGameState) // Get the game state for a specific table (not yet implemented)
+	router.GET("/join", joinTable)     // Join a table
+	router.GET("/start", StartNewGame) // Join a table
 
 	// Set up router and start server
 
@@ -130,37 +135,36 @@ func SetupTable(tableIndex int) {
 	if tableIndex < 0 || tableIndex >= len(gameStates) {
 		return // Invalid table index
 	}
-	gameStates[tableIndex].Maindeck = NewDeck()
-	shuffleDeck(gameStates[tableIndex].Maindeck)
-	gameStates[tableIndex].Discard = gameStates[tableIndex].Maindeck[55] // Set the discard to the last card in the deck
-	gameStates[tableIndex].NumCards = 55                                 // 55 cards left in the deck after dealing one to discard
+	gameStates[tableIndex].Maindeck = NewDeck()              // Create a new deck for the table
+	shuffleDeck(gameStates[tableIndex].Maindeck, tableIndex) // Shuffle the deck and set the discard pile
 }
 
 // shuffleDeck shuffles the deck using the Fisher-Yates algorithm.
-func shuffleDeck(deck []Card) {
+// And deal out the first card to the discard pile.
+func shuffleDeck(deck []Card, tableIndex int) {
 	for i := len(deck) - 1; i > 0; i-- {
 		j := rand.Intn(i + 1)
 		deck[i], deck[j] = deck[j], deck[i]
 	}
+	gameStates[tableIndex].Discard = gameStates[tableIndex].Maindeck[55] // Set the discard to the last card in the deck
+	gameStates[tableIndex].NumCards = 55
 }
 
 // drawCard handles the drawing of a card from the deck.
-func drawCard(c *gin.Context) {
-	ok := false
-	tableIndex := -1
-	tableIndex, ok = getTableIndex(c)
-	if !ok {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid table index"})
-		return
+func drawCard(tableIndex int) {
+
+	if tableIndex < 0 || tableIndex >= len(gameStates) {
+		fmt.Println("error: Invalid table index")
+		return // Invalid table index
 	}
 
 	if gameStates[tableIndex].NumCards == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "No cards left in the deck"})
+		fmt.Println("error: No cards left in the deck")
 		return
 	}
 	gameStates[tableIndex].Discard = gameStates[tableIndex].Maindeck[gameStates[tableIndex].NumCards] // Set the discard to the last card in the deck
 	gameStates[tableIndex].NumCards--
-	c.JSON(http.StatusOK, gameStates[tableIndex].Discard)
+	fmt.Println("got a card:", gameStates[tableIndex].Discard.Cardname)
 }
 
 // find the table index from the query parameter
@@ -179,4 +183,88 @@ func getTableIndex(c *gin.Context) (int, bool) {
 		}
 	}
 	return tableIndex, ok
+}
+
+// joinTable allows a player to join a table.
+func joinTable(c *gin.Context) {
+	tableIndex := -1
+	ok := false
+	tableIndex, ok = getTableIndex(c)
+	newplayerName := c.Query("player")
+	newplayer := Player{
+		Name:          newplayerName,
+		Human:         true,
+		Status:        STATUS_WAITING,
+		Whitecounters: 0,
+		Blackcounters: 0,
+		Score:         0,
+		Hand:          Deck{},
+		Playorder:     0,     // Set the play order to the current number of players
+		Lastplayer:    false, // Initially, the player is not the last to play or fold
+	}
+	// Add the new player to the game state if a valid condtions are met
+
+	switch {
+	case !ok:
+		c.JSON(http.StatusPartialContent, "You need to specify a valid table and player name to join EG: /join?table=ai1&player=Bob") // Notify the player to specify a table and player name
+		return
+	case newplayerName == "":
+		c.JSON(http.StatusPartialContent, "You need to supply a player name to join a table")
+		return
+	case checkPlayerName(tableIndex, newplayerName):
+		c.JSON(http.StatusConflict, "Sorry: "+newplayerName+" someoneis already at table with that name ,please try a diffrent table and or name") // Notify the player name is already taken
+		return
+	case gameStates[tableIndex].Table.Status == "playing":
+		c.JSON(http.StatusConflict, "Sorry: "+newplayerName+" table "+tables[tableIndex].Table+" has a game in progress, please try a diffrent table") // Notify the player that the table is busy
+		return
+	case gameStates[tableIndex].Table.Status == "full":
+		gameStates[tableIndex].Table.Status = "full"
+		c.JSON(http.StatusConflict, "Sorry: "+newplayerName+" table "+tables[tableIndex].Table+" is full, please try a diffrent table") // Notify the player that the table is full
+		return
+
+	default:
+		gameStates[tableIndex].Table.Status = "waiting" // set status to waiting
+		gameStates[tableIndex].Players = append(gameStates[tableIndex].Players, newplayer)
+		gameStates[tableIndex].Table.CurPlayers++ // Increment the current players count
+		if gameStates[tableIndex].Table.CurPlayers >= gameStates[tableIndex].Table.MaxPlayers {
+			gameStates[tableIndex].Table.Status = "full" // Set the status to full if max players reached
+		}
+		tables[tableIndex].CurPlayers = gameStates[tableIndex].Table.CurPlayers // update the quick table view players count
+		tables[tableIndex].Status = gameStates[tableIndex].Table.Status         // update the quick table view status
+		c.JSON(http.StatusCreated, newplayerName+" joined table "+tables[tableIndex].Table)
+	}
+}
+
+// Check if player name is already taken
+func checkPlayerName(tableIndex int, newplayerName string) bool {
+	ok := false
+	for _, player := range gameStates[tableIndex].Players {
+		if player.Name == newplayerName {
+			ok = true
+		}
+	}
+	return ok
+}
+
+// start a new game on the table
+func StartNewGame(c *gin.Context) {
+	tableIndex := -1
+	ok := false
+	tableIndex, ok = getTableIndex(c)
+	switch {
+	case !ok || tableIndex < 0 || tableIndex >= len(gameStates):
+		// If no table is specified or invalid table index, return an error
+		c.JSON(http.StatusPartialContent, "You need to specify a valid table to start a new game EG: /start?table=ai1")
+		return
+	case gameStates[tableIndex].Table.CurPlayers == 0:
+		c.JSON(http.StatusConflict, "Sorry: table "+tables[tableIndex].Table+" has no human players, please join the table before starting a game")
+		return
+	case gameStates[tableIndex].Table.Status == "playing":
+		c.JSON(http.StatusConflict, "Sorry: table "+tables[tableIndex].Table+" has a game in progress, please try a diffrent table")
+		return
+	default:
+		gameStates[tableIndex].Table.Status = "playing"
+		tables[tableIndex].Status = gameStates[tableIndex].Table.Status
+		c.JSON(http.StatusOK, "New game started on table "+tables[tableIndex].Table)
+	}
 }

@@ -22,7 +22,7 @@ JSON$="/tables"
 URL$=BaseURL$
 URL$=+JSON$
 ' Initialize strings - this reserves their space in memory so NInput can write to them
-Dim  TableID$(6),TableName$(6),TableCurrentPlayers$(6),TableMaxPlayers$(6)
+Dim  TableID$(6),TableName$(6),TableCurrentPlayers$(6),TableMaxPlayers$(6),TableStatus$(6)
 
 dummy$=""
 for i=0 to 6
@@ -30,6 +30,7 @@ for i=0 to 6
  TableName$(i)=""
  TableCurrentPlayers$(i)=""
  TableMaxPlayers$(i)=""
+ TableStatus$(i)=""
 next i
 
 ' Draw the opening screen 
@@ -60,6 +61,7 @@ do
   @NInput &dummy$ : @NInput &TableName$(INDEX)
   @NInput &dummy$ : @NInput &TableCurrentPlayers$(INDEX)
   @NInput &dummy$ : @NInput &TableMaxPlayers$(INDEX)
+  @NInput &dummy$ : @NInput &TableStatus$(INDEX)
 
   INC INDEX
 loop 
