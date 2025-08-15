@@ -27,7 +27,15 @@
 
 Table to join: <input type="text" id="tableID" placeholder="Enter table id (t)">
 player name: <input type="text" id="playerName" placeholder="Enter your name">
-<button onclick="window.location.href='http://192.168.68.100:8080/join?table=' + document.getElementById('tableID').value + '&player=' + document.getElementById('playerName').value">Join Table</button>
+<button id="joinTableButton" onclick="openTableAndRefresh()">Join Table</button>
+<script>
+function openTableAndRefresh() {
+    var tableId = document.getElementById('tableID').value;
+    var playerName = document.getElementById('playerName').value;
+    window.open('table.html?id=' + tableId + '&player=' + playerName, '_blank');
+    location.reload();
+}
+</script>
 
 
 </body>
