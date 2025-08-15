@@ -32,11 +32,22 @@ player name: <input type="text" id="playerName" placeholder="Enter your name">
 function openTableAndRefresh() {
     var tableId = document.getElementById('tableID').value;
     var playerName = document.getElementById('playerName').value;
-    window.open('table.html?id=' + tableId + '&player=' + playerName, '_blank');
+    window.open('http://192.168.68.100:8080/join?table=' + tableId + '&player=' + playerName, '_blank');
     location.reload();
 }
 </script>
 
+
+<P></P>
+Table to Start: <input type="text" id="tableID1" placeholder="Enter table id (t)">
+<button id="StartTableButton" onclick="openTableAndRefresh1()">Start Table</button>
+<script>
+function openTableAndRefresh1() {
+    var tableId1 = document.getElementById('tableID1').value;
+    window.open('http://192.168.68.100:8080/start?table=' + tableId1, '_blank');
+    location.reload();
+}
+</script>
 
 </body>
 </html>

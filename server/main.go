@@ -190,7 +190,7 @@ func joinTable(c *gin.Context) {
 
 	switch {
 	case !ok:
-		c.JSON(http.StatusPartialContent, "You need to specify a valid table and player name to join EG: /join?table=ai1&player=Bob") // Notify the player to specify a table and player name
+		c.JSON(http.StatusPartialContent, "You need to specify a valid table and player name to join") // Notify the player to specify a table and player name
 		return
 	case newplayerName == "":
 		c.JSON(http.StatusPartialContent, "You need to supply a player name to join a table")
