@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Game State Table</title>
+    <style>
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 20px 0;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+    </style>
+</head>
+<body>
+
+    <h2>Game State Table</h2>
+    <div id="tableContainer"></div>
+
+    <script>
+        function fetchGameState() {
+            fetch('http://192.168.68.100:8080/state?table=ai1&player=Simon')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    displayTable(data);
+                })
+                .catch(error => {
+                    console.error('Error fetching data:', error);
+                    const container = document.getElementById('tableContainer');
+                    container.innerHTML = `<p style="color: red;">Error loading data: ${error.message}</p>`;
+                });
+        }
+
+        function displayTable(data) {
+            const container = document.getElementById('tableContainer');
+            if (!data || typeof data !== 'object') {
+                container.innerHTML = '<p style="color: red;">Invalid data received</p>';
+                return;
+            }
+            
+            let allTablesHtml = '';
+
+            // Table 1: Table Cards
+            if (data.dd) {
+                const DrawDeck = Array.isArray(data.dd) ? data.dd.join(', ') : data.dd;
+                allTablesHtml += `<table style="width: auto;">`;
+                allTablesHtml += `<tr><th>Draw Deck (${DrawDeck})</th><th>Discard Pile</th></tr>`;
+                const discardCards = Array.isArray(data.dp) ? data.dp : [data.dp];
+                allTablesHtml += '<tr><td><img src="LlamaCardBack.png" alt="Card Back" style="width:100px;"></td><td>';
+                discardCards.forEach(card => {
+                    const cardValue = typeof card === 'object' ? card.Cardvalue : card;
+                    allTablesHtml += `<img src="LlamaCard${cardValue}.png" alt="Card ${cardValue}" style="width:100px; margin:2px;">`;
+                });
+                const lastMovePlayed = Array.isArray(data.lmp)? data.lmp.join(', ') : data.lmp;
+                allTablesHtml += `<tr><td colspan=2>${lastMovePlayed}</td></tr>`;
+                allTablesHtml += '</table>';
+            }
+
+
+            // Table 2: Player Hand and Valid Moves
+            if (data.ph) {
+                const playerName = Array.isArray(data.pn) ? data.pn.join(', ') : data.pn;
+                const blackCounters = Array.isArray(data.pbc) ? data.pbc.join(', ') : data.pbc;
+                const whiteCounters = Array.isArray(data.pwc) ? data.pwc.join(', ') : data.pwc;
+                const score = (blackCounters*10) + whiteCounters;
+                allTablesHtml += `<table style="width: auto;"><tr><th>${playerName} you have ${blackCounters} Black and ${whiteCounters} White Counters
+                    <br> Score: ${score}
+                    <br>and your current cards are </th></tr>`;
+                let handHtml = '<td>';
+                if (Array.isArray(data.ph)) {
+                    data.ph.forEach(card => {
+                        const cardValue = typeof card === 'object' ? card.Cardvalue : card;
+                        handHtml += `<img src="LlamaCard${cardValue}.png" alt="Card ${cardValue}" style="width:100px; margin:2px;">`;
+                    });
+                } else {
+                    handHtml += data.ph || 'N/A';
+                }
+                handHtml += '</td>';
+                allTablesHtml += `<tr>${handHtml}</tr>`;
+                
+                // Add valid moves in a new row
+                allTablesHtml += '<tr><th>Valid Moves</th></tr>';
+                const moves = Array.isArray(data.pvm) ? data.pvm.join(', ') : (data.pvm || 'N/A');
+                allTablesHtml += `<tr><td>${moves}</td></tr>`;
+                allTablesHtml += '</table>';
+            }
+
+            // Table 3: List of Players
+            if (data.pls) {
+                allTablesHtml += '<table style="width: auto;">';
+                    const playerName = Array.isArray(data.pn) ? data.pn.join(', ') : data.pn;
+                    const players = Array.isArray(data.pls) ? data.pls : [data.pls];
+                players.forEach(player => {
+                    // Skip if player name matches the query parameter
+                    if (player.n === `${playerName}`) return;
+                    const score = (player.bc*10) + player.wc;
+                   allTablesHtml +=`<tr><th>${player.n} has ${player.bc} Black and ${player.wc} White Counters
+                    <br> Score: ${score}
+                    <br>as is  ${player.s}</th></tr>
+                    <tr><td>${player.nc} cards</td></tr>`;
+                 
+                });
+                allTablesHtml += '</table>';
+            }
+
+            container.innerHTML = allTablesHtml || '<p>No data available</p>';
+        }
+        
+
+        // Fetch data when page loads
+        fetchGameState();
+
+        // Refresh every 5 seconds
+       // setInterval(fetchGameState, 5000);
+    </script>
+</body>
+</html>

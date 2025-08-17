@@ -131,7 +131,7 @@ Endif
 
 
 JSON$="/join?table="
-JSON$=+_T$
+JSON$=+TableID$(_TN-1) ' Join the table based on the name selected
 JSON$=+"&player="
 JSON$=+_name$
 
@@ -157,24 +157,35 @@ if len(dummy$) > 0 then
 _ERR=VAL(dummy$[5,1])
   if _ERR=1 
     ok = 0
-    ? "You need to specify a valid table and player name to join"
+    ? " You need to specify a valid table"
+?     " and player name to join"
   elif _ERR=2 
     ok = 0
-    ? "You need to supply a player name to join a table"
+    ? " You need to supply a player name"
+    ? " to join a table"
   elif _ERR=3 
     ok = 0
-    ? "Sorry: ";_name$;" someone is already at table with that name, please try a different table and or name"
+    ? "Sorry: ";_name$;" someone is already"
+    ? "at table ";TableName$(_TN-1);"with that name,"
+    ? "please try a different"
+    ? "table and or name"
+  
   elif _ERR=4 
     ok = 0
-    ? "Sorry: ";_name$;" table ";_T$;" has a game in progress, please try a different table"
+    ? "Sorry: ";_name$;" table ";TableName$(_TN-1)
+    ? " has a game in progress,"
+    ? "please try a different table"
   elif _ERR=5 
     ok = 0
-    ? "Sorry: ";_name$;" table ";_T$;" is full, please try a different table"
+    ? "Sorry: ";_name$;" table ";TableName$(_TN-1);
+    ? " is full, please try a different table"
 else
-  ? "You have joined table ";_T$;" as player ";_name$
+  ? "You have joined table "
+  ? TableName$(_TN-1)
+  ? "as player ";_name$
   ok = 1
 endif
-get K
+
 endproc
 
 

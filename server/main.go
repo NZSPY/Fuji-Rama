@@ -10,11 +10,13 @@ import (
 )
 
 type GameState struct {
-	Table    GameTable
-	NumCards int
-	Discard  Card
-	Players  Players
-	Maindeck Deck
+	Table          GameTable
+	NumCards       int
+	Discard        Card
+	Players        Players
+	Maindeck       Deck
+	Lastplayer     string // name of the last player who played or folded
+	LastMovePlayed string // Last move made by the player (e.g., "play", "fold", "draw")
 }
 
 var gameStates = make([]GameState, 7)
@@ -64,8 +66,12 @@ type Player struct {
 	Blackcounters int
 	Score         int
 	Hand          Deck
+	NumCards      int    // Number of cards in hand
+	LastMove      string // Last move made by the player (e.g., "play", "fold", "draw")
+	ValidMove     string // List of valid moves for the player (e.g., "play", "fold", "draw")
 	Playorder     int
-	Lastplayer    bool // Indicates if this player was the last to play or fold
+	Lastplayer    bool // Indicates if this player was the last to play or fold (used to determine the first player for next round)
+
 }
 
 // Players represents a the players at a table
@@ -74,17 +80,17 @@ type Players []Player
 func main() {
 	// Initialize the tables and game states
 	for i := 0; i < len(gameStates); i++ {
-		gameStates[i] = GameState{Table: tables[i], Maindeck: Deck{}, NumCards: 0, Discard: Card{}, Players: Players{}}
+		gameStates[i] = GameState{Table: tables[i], Maindeck: Deck{}, NumCards: 0, Discard: Card{}, Players: Players{}, Lastplayer: "", LastMovePlayed: "Waiting for players to join"}
 		SetupTable(i) // Initialize each table with a new deck and shuffle it
 	}
 
 	router := gin.Default()
-	router.Use(cors.Default())         // All origins allowed by default (added this for testing via java script as it wouldn't work with it)
-	router.GET("/tables", getTables)   // Get the list of tables
-	router.GET("/view", viewGameState) // View the game state for a specific table
-	router.GET("/state", getGameState) // Get the game state for a specific table (not yet implemented)
-	router.GET("/join", joinTable)     // Join a table
-	router.GET("/start", StartNewGame) // Join a table
+	router.Use(cors.Default())            // All origins allowed by default (added this for testing via java script as it wouldn't work with it)
+	router.GET("/tables", getTables)      // Get the list of tables
+	router.GET("/devview", viewGameState) // View the game state for a specific table (a Cheats view)
+	router.GET("/state", getGameState)    // Get the game state for a specific table and player
+	router.GET("/join", joinTable)        // Join a table
+	router.GET("/start", StartNewGame)    // Join a table
 
 	// Set up router and start server
 
@@ -98,13 +104,7 @@ func getTables(c *gin.Context) {
 	c.JSON(http.StatusOK, tables)
 }
 
-// getGameState retrieves the game state for a specific table.
-// This function is a placeholder for future implementation.
-func getGameState(c *gin.Context) {
-	c.JSON(http.StatusOK, "Commign soon - game state retrieval not yet implemented")
-}
-
-// View the State retrieves the game state for a specific table or all if none specified.
+// View the State retrieves the game state for a specific table or all if none specified (cheating view).
 func viewGameState(c *gin.Context) {
 	tableIndex := -1
 	ok := false
@@ -183,8 +183,11 @@ func joinTable(c *gin.Context) {
 		Blackcounters: 0,
 		Score:         0,
 		Hand:          Deck{},
-		Playorder:     0,     // Set the play order to the current number of players
-		Lastplayer:    false, // Initially, the player is not the last to play or fold
+		NumCards:      0,         // Initially, the player has no cards in hand
+		LastMove:      "",        // Initially, the player has not made any moves
+		ValidMove:     "Waiting", // Initially, the player has not made a valid move
+		Playorder:     0,         // Set the play order to the current number of players
+		Lastplayer:    false,     // Initially, the player is not the last to play or fold
 	}
 	// Add the new player to the game state if a valid condtions are met
 
@@ -196,26 +199,27 @@ func joinTable(c *gin.Context) {
 		c.JSON(http.StatusPartialContent, "ERR(2)You need to supply a player name to join a table")
 		return
 	case checkPlayerName(tableIndex, newplayerName):
-		c.JSON(http.StatusConflict, "ERR(3) Sorry: "+newplayerName+" someone is already at table with that name ,please try a diffrent table and or name") // Notify the player name is already taken
+		c.JSON(http.StatusConflict, "ERR(3) Sorry: "+newplayerName+" someone is already at table with that name ,please try a different table and or name") // Notify the player name is already taken
 		return
 	case gameStates[tableIndex].Table.Status == "playing":
-		c.JSON(http.StatusConflict, "ERR(4) Sorry: "+newplayerName+" table "+tables[tableIndex].Table+" has a game in progress, please try a diffrent table") // Notify the player that the table is busy
+		c.JSON(http.StatusConflict, "ERR(4) Sorry: "+newplayerName+" table "+tables[tableIndex].Table+" has a game in progress, please try a different table") // Notify the player that the table is busy
 		return
 	case gameStates[tableIndex].Table.Status == "full":
 		gameStates[tableIndex].Table.Status = "full"
-		c.JSON(http.StatusConflict, "ERR(5) Sorry: "+newplayerName+" table "+tables[tableIndex].Table+" is full, please try a diffrent table") // Notify the player that the table is full
+		c.JSON(http.StatusConflict, "ERR(5) Sorry: "+newplayerName+" table "+tables[tableIndex].Table+" is full, please try a different table") // Notify the player that the table is full
 		return
 
 	default:
-		gameStates[tableIndex].Table.Status = "waiting" // set status to waiting
+		c.JSON(http.StatusOK, newplayerName+" joined table "+tables[tableIndex].Table) // Notify the player that they have successfully joined the table
+		gameStates[tableIndex].Table.Status = "waiting"                                // set status to waiting
 		gameStates[tableIndex].Players = append(gameStates[tableIndex].Players, newplayer)
 		gameStates[tableIndex].Table.CurPlayers++ // Increment the current players count
 		if gameStates[tableIndex].Table.CurPlayers >= gameStates[tableIndex].Table.MaxPlayers {
 			gameStates[tableIndex].Table.Status = "full" // Set the status to full if max players reached
+			StartNewGame(c)                              // Automatically start a new game if the table is full
 		}
 		tables[tableIndex].CurPlayers = gameStates[tableIndex].Table.CurPlayers // update the quick table view players count
 		tables[tableIndex].Status = gameStates[tableIndex].Table.Status         // update the quick table view status
-		c.JSON(http.StatusOK, newplayerName+" joined table "+tables[tableIndex].Table)
 	}
 }
 
@@ -244,14 +248,14 @@ func StartNewGame(c *gin.Context) {
 		c.JSON(http.StatusConflict, "Sorry: table "+tables[tableIndex].Table+" has no human players, please join the table before starting a game")
 		return
 	case gameStates[tableIndex].Table.Status == "playing":
-		c.JSON(http.StatusConflict, "Sorry: table "+tables[tableIndex].Table+" has a game in progress, please try a diffrent table")
+		c.JSON(http.StatusConflict, "Sorry: table "+tables[tableIndex].Table+" has a game in progress, please try a different table")
 		return
 	default:
 		// Start the game state for the table
 		c.JSON(http.StatusOK, "New game started on table "+tables[tableIndex].Table)
 		// fill up the empty slots with AI players if there are less than 6 players up to the maxiumum  bots allowed at that table
 		for i := 0; i < gameStates[tableIndex].Table.maxBots; i++ {
-			if gameStates[tableIndex].Table.CurPlayers >= gameStates[tableIndex].Table.MaxPlayers {
+			if gameStates[tableIndex].Table.CurPlayers >= (gameStates[tableIndex].Table.MaxPlayers + gameStates[tableIndex].Table.maxBots) {
 				break // Stop adding AI players if the maximum number of players is reached
 			}
 			// Create a new AI player
@@ -279,8 +283,93 @@ func StartNewGame(c *gin.Context) {
 			for j := 0; j < 6; j++ {
 				player.Hand = append(player.Hand, gameStates[tableIndex].Maindeck[gameStates[tableIndex].NumCards]) // draw the last card from the deck
 				gameStates[tableIndex].NumCards--                                                                   // Decrement the number of cards in the deck
+				player.NumCards++                                                                                   // Increment the number of cards in the player's hand
 			}
 		}
 
 	}
+}
+
+// getGameState retrieves the game state for a specific player at a specific table
+func getGameState(c *gin.Context) {
+	tableIndex, ok := getTableIndex(c)
+	playerName := c.Query("player")
+
+	if !ok || playerName == "" {
+		c.JSON(http.StatusBadRequest, "Must specify both table and player name")
+		return
+	}
+
+	// Create player state info for all players at table
+	playerStates := make([]struct {
+		Name          string `json:"n"`
+		Status        Status `json:"s"`
+		NumCards      int    `json:"nc"`
+		WhiteCounters int    `json:"wc"`
+		BlackCounters int    `json:"bc"`
+	}, len(gameStates[tableIndex].Players))
+
+	// Find active player's hand and valid moves
+	// Initialize active player variables so can be loaded from the game state
+	var activePlayerHand Deck
+	activePlayerName := ""
+	activePlayerStatus := STATUS_WAITING
+	activePlayerWC := 0
+	activePlayerBC := 0
+	activePlayerValidMove := ""
+
+	for _, player := range gameStates[tableIndex].Players {
+		if player.Name == playerName {
+			activePlayerName = player.Name
+			activePlayerStatus = player.Status
+			activePlayerWC = player.Whitecounters
+			activePlayerBC = player.Blackcounters
+			activePlayerHand = player.Hand
+			activePlayerValidMove = player.ValidMove
+			break
+		}
+	}
+
+	for i, player := range gameStates[tableIndex].Players {
+		playerStates[i] = struct {
+			Name          string `json:"n"`
+			Status        Status `json:"s"`
+			NumCards      int    `json:"nc"`
+			WhiteCounters int    `json:"wc"`
+			BlackCounters int    `json:"bc"`
+		}{
+			Name:          player.Name,
+			Status:        player.Status,
+			NumCards:      player.NumCards,
+			WhiteCounters: player.Whitecounters,
+			BlackCounters: player.Blackcounters,
+		}
+	}
+
+	// Create simplified game state response with player's hand
+	response := struct {
+		DrawDeck        int         `json:"dd"`
+		DiscardPile     Card        `json:"dp"`
+		LastMovePlayed  string      `json:"lmp"` // Last move played
+		PlayerName      string      `json:"pn"`
+		PlayerStatus    Status      `json:"ps"`
+		PlayerWC        int         `json:"pwc"`
+		PlayerBC        int         `json:"pbc"`
+		PlayerValidMove string      `json:"pvm"`
+		PlayerHand      Deck        `json:"ph"`
+		Players         interface{} `json:"pls"`
+	}{
+		DrawDeck:        gameStates[tableIndex].NumCards,
+		DiscardPile:     gameStates[tableIndex].Discard,
+		LastMovePlayed:  gameStates[tableIndex].LastMovePlayed,
+		PlayerName:      activePlayerName,
+		PlayerStatus:    activePlayerStatus,
+		PlayerWC:        activePlayerWC,
+		PlayerBC:        activePlayerBC,
+		PlayerValidMove: activePlayerValidMove,
+		PlayerHand:      activePlayerHand,
+		Players:         playerStates,
+	}
+
+	c.JSON(http.StatusOK, response)
 }
