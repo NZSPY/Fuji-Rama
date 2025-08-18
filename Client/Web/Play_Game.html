@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Game State Table</title>
+    <title>Game State View</title>
     <style>
         table {
             border-collapse: collapse;
@@ -20,7 +20,7 @@
 </head>
 <body>
 
-    <h2>Game State Table</h2>
+    <h2>Game State View</h2>
     <div id="tableContainer"></div>
 
     <script>
@@ -52,20 +52,26 @@
             let allTablesHtml = '';
 
             // Table 1: Table Cards
-            if (data.dd) {
+      
                 const DrawDeck = Array.isArray(data.dd) ? data.dd.join(', ') : data.dd;
                 allTablesHtml += `<table style="width: auto;">`;
                 allTablesHtml += `<tr><th>Draw Deck (${DrawDeck})</th><th>Discard Pile</th></tr>`;
-                const discardCards = Array.isArray(data.dp) ? data.dp : [data.dp];
-                allTablesHtml += '<tr><td><img src="LlamaCardBack.png" alt="Card Back" style="width:100px;"></td><td>';
-                discardCards.forEach(card => {
+                if (DrawDeck > 0) {
+                    allTablesHtml += `<tr><td><img src="LlamaCardBack.png" alt="Card Back" style="width:100px;"></td>`;
+                } else {
+                    allTablesHtml += `<tr><td><img src="NoLlamaCards.png" alt="Card Back" style="width:100px;"></td>`;
+                }
+               
+                        const discardCards = Array.isArray(data.dp) ? data.dp : [data.dp];
+                    discardCards.forEach(card => {
                     const cardValue = typeof card === 'object' ? card.Cardvalue : card;
-                    allTablesHtml += `<img src="LlamaCard${cardValue}.png" alt="Card ${cardValue}" style="width:100px; margin:2px;">`;
+                    allTablesHtml += `<td><img src="LlamaCard${cardValue}.png" alt="Card ${cardValue}" style="width:100px; margin:2px;"></td></tr>`;
                 });
                 const lastMovePlayed = Array.isArray(data.lmp)? data.lmp.join(', ') : data.lmp;
-                allTablesHtml += `<tr><td colspan=2>${lastMovePlayed}</td></tr>`;
+                const waitTimer = Array.isArray(data.wt)? data.wt.join(', ') : data.wt;
+                allTablesHtml += `<tr><td colspan=2>${lastMovePlayed} :${waitTimer}</td></tr>`;
                 allTablesHtml += '</table>';
-            }
+     
 
 
             // Table 2: Player Hand and Valid Moves
@@ -92,11 +98,20 @@
                 // Add valid moves in a new row
                 allTablesHtml += '<tr><th>Valid Moves</th></tr>';
                 const moves = Array.isArray(data.pvm) ? data.pvm.join(', ') : (data.pvm || 'N/A');
-                allTablesHtml += `<tr><td>${moves}</td></tr>`;
-                allTablesHtml += '</table>';
-            }
+    allTablesHtml += `<tr><td>
+        <button id="joinTableButton" onclick="moveCurrent()">Play Current</button>
+        <button id="joinTableButton" onclick="moveNext()">Play Next</button>
+        <button id="joinTableButton" onclick="moveDraw()">Draw Card</button>
+        <button id="joinTableButton" onclick="moveFold()">Fold</button>
+        <button onclick="location.reload()">Refresh</button>
+    </td></tr>
+   
+    <tr><td>${moves}</td></tr>`;
+    allTablesHtml += '</table>';
+}
 
-            // Table 3: List of Players
+
+            // Table 3: List of other Players
             if (data.pls) {
                 allTablesHtml += '<table style="width: auto;">';
                     const playerName = Array.isArray(data.pn) ? data.pn.join(', ') : data.pn;
@@ -105,18 +120,48 @@
                     // Skip if player name matches the query parameter
                     if (player.n === `${playerName}`) return;
                     const score = (player.bc*10) + player.wc;
+                   const status =   player.s === 0 ? "Waiting" :
+                                    player.s === 1 ? "Playing" :
+                                    player.s === 2 ? "Folded" :
+                                    player.s === 3 ? "Left the server" : "UNKNOWN";
                    allTablesHtml +=`<tr><th>${player.n} has ${player.bc} Black and ${player.wc} White Counters
                     <br> Score: ${score}
-                    <br>as is  ${player.s}</th></tr>
-                    <tr><td>${player.nc} cards</td></tr>`;
-                 
+                    <br>and is  ${status}</th></tr>
+                    <tr><td>${'<img src="LlamaCardBack.png" alt="Card Back" style="width:100px;">'.repeat(player.nc)}</td></tr>`;
                 });
                 allTablesHtml += '</table>';
             }
-
             container.innerHTML = allTablesHtml || '<p>No data available</p>';
         }
         
+        function moveCurrent() {
+            var tableId = "ai1"; // Hardcoded table ID for this example
+            var playerName = "Simon"; // Hardcoded player name for this example
+            window.open('http://192.168.68.100:8080/move?table=' + tableId + '&player=' + playerName + "&VM=C", '_blank');
+            location.reload();
+        }
+
+        function moveNext() {
+            var tableId = "ai1"; // Hardcoded table ID for this example
+            var playerName = "Simon"; // Hardcoded player name for this example
+            window.open('http://192.168.68.100:8080/move?table=' + tableId + '&player=' + playerName+ "&VM=N", '_blank');
+            location.reload();
+        }
+
+        function moveDraw() {
+            var tableId = "ai1"; // Hardcoded table ID for this example
+            var playerName = "Simon"; // Hardcoded player name for this example
+            window.open('http://192.168.68.100:8080/move?table=' + tableId + '&player=' + playerName+ "&VM=D", '_blank');
+            location.reload();
+        }
+
+        function moveFold() {
+            var tableId = "ai1"; // Hardcoded table ID for this example
+            var playerName = "Simon"; // Hardcoded player name for this example
+            window.open('http://192.168.68.100:8080/move?table=' + tableId + '&player=' + playerName+ "&VM=F", '_blank');
+            location.reload();
+        }
+
 
         // Fetch data when page loads
         fetchGameState();
@@ -125,4 +170,5 @@
        // setInterval(fetchGameState, 5000);
     </script>
 </body>
-</html>
+</html>        
+

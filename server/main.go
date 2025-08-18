@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net/http"
+	"strings"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -15,8 +16,8 @@ type GameState struct {
 	Discard        Card
 	Players        Players
 	Maindeck       Deck
-	Lastplayer     string // name of the last player who played or folded
-	LastMovePlayed string // Last move made by the player (e.g., "play", "fold", "draw")
+	LastMovePlayed string // Last move made by the active player (e.g., "play", "fold", "draw")
+	WaitingTimer   int    // Timer for waiting for players to make a move
 }
 
 var gameStates = make([]GameState, 7)
@@ -59,18 +60,18 @@ type Card struct {
 }
 
 type Player struct {
-	Name          string
-	Human         bool
-	Status        Status
-	Whitecounters int
-	Blackcounters int
-	Score         int
-	Hand          Deck
-	NumCards      int    // Number of cards in hand
-	LastMove      string // Last move made by the player (e.g., "play", "fold", "draw")
-	ValidMove     string // List of valid moves for the player (e.g., "play", "fold", "draw")
-	Playorder     int
-	Lastplayer    bool // Indicates if this player was the last to play or fold (used to determine the first player for next round)
+	Name             string
+	Human            bool
+	Status           Status
+	Whitecounters    int
+	Blackcounters    int
+	Score            int
+	Hand             Deck
+	NumCards         int    // Number of cards in hand
+	LastMove         string // Last move made by the player (e.g., "play", "fold", "draw")
+	ValidMove        string // List of valid moves for the player (e.g., "play", "fold", "draw")
+	Playorder        int
+	LastPlayerToFold bool // Indicates if this player was the last to play or fold (used to determine the first player for next round)
 
 }
 
@@ -80,20 +81,20 @@ type Players []Player
 func main() {
 	// Initialize the tables and game states
 	for i := 0; i < len(gameStates); i++ {
-		gameStates[i] = GameState{Table: tables[i], Maindeck: Deck{}, NumCards: 0, Discard: Card{}, Players: Players{}, Lastplayer: "", LastMovePlayed: "Waiting for players to join"}
+		gameStates[i] = GameState{Table: tables[i], Maindeck: Deck{}, NumCards: 0, Discard: Card{}, Players: Players{}, LastMovePlayed: "Waiting for players to join"}
 		SetupTable(i) // Initialize each table with a new deck and shuffle it
 	}
 
 	router := gin.Default()
 	router.Use(cors.Default())            // All origins allowed by default (added this for testing via java script as it wouldn't work with it)
 	router.GET("/tables", getTables)      // Get the list of tables
-	router.GET("/devview", viewGameState) // View the game state for a specific table (a Cheats view)
+	router.GET("/devview", viewGameState) // View the game state for a specific table (IE Cheats view)
 	router.GET("/state", getGameState)    // Get the game state for a specific table and player
 	router.GET("/join", joinTable)        // Join a table
-	router.GET("/start", StartNewGame)    // Join a table
+	router.GET("/start", StartNewGame)    // start a new game on a table (this also happens when the table is filled with players), if the table is not fill it will fill the emplty slots with AI Players
+	router.GET("/move", doVaildMove)      // Make a move on the table (play, fold, draw)
 
 	// Set up router and start server
-
 	router.SetTrustedProxies(nil) // Disable trusted proxies because Gin told me to do it.. (neeed to investigate this further)
 	//router.Run("localhost:8080")
 	router.Run("192.168.68.100:8080") // put your server address here
@@ -176,18 +177,18 @@ func joinTable(c *gin.Context) {
 	tableIndex, ok = getTableIndex(c)
 	newplayerName := c.Query("player")
 	newplayer := Player{
-		Name:          newplayerName,
-		Human:         true,
-		Status:        STATUS_WAITING,
-		Whitecounters: 0,
-		Blackcounters: 0,
-		Score:         0,
-		Hand:          Deck{},
-		NumCards:      0,         // Initially, the player has no cards in hand
-		LastMove:      "",        // Initially, the player has not made any moves
-		ValidMove:     "Waiting", // Initially, the player has not made a valid move
-		Playorder:     0,         // Set the play order to the current number of players
-		Lastplayer:    false,     // Initially, the player is not the last to play or fold
+		Name:             newplayerName,
+		Human:            true,
+		Status:           STATUS_WAITING,
+		Whitecounters:    0,
+		Blackcounters:    0,
+		Score:            0,
+		Hand:             Deck{},
+		NumCards:         0,     // Initially, the player has no cards in hand
+		LastMove:         "",    // Initially, the player has not made any moves
+		ValidMove:        "",    // Initially, the player has not made a valid move
+		Playorder:        0,     // Set the play order to the current number of players
+		LastPlayerToFold: false, // Initially, the player is not the last to play or fold
 	}
 	// Add the new player to the game state if a valid condtions are met
 
@@ -220,6 +221,7 @@ func joinTable(c *gin.Context) {
 		}
 		tables[tableIndex].CurPlayers = gameStates[tableIndex].Table.CurPlayers // update the quick table view players count
 		tables[tableIndex].Status = gameStates[tableIndex].Table.Status         // update the quick table view status
+		gameStates[tableIndex].WaitingTimer = 0                                 // Reset the waiting timer for the game state
 	}
 }
 
@@ -260,22 +262,24 @@ func StartNewGame(c *gin.Context) {
 			}
 			// Create a new AI player
 			newAIPlayer := Player{
-				Name:          fmt.Sprintf("AI-%d", i+1),
-				Human:         false,
-				Status:        STATUS_WAITING,
-				Whitecounters: 0,
-				Blackcounters: 0,
-				Score:         0,
-				Hand:          Deck{},
-				Playorder:     i + 1, // Set the play order based on the current number of players
-				Lastplayer:    false, // Initially, the AI player is not the last to play or fold
+				Name:             fmt.Sprintf("AI-%d", i+1),
+				Human:            false,
+				Status:           STATUS_WAITING,
+				Whitecounters:    0,
+				Blackcounters:    0,
+				Score:            0,
+				Hand:             Deck{},
+				Playorder:        i + 1, // Set the play order based on the current number of players
+				LastPlayerToFold: false, // Initially, the AI player is not the last to play or fold
 			}
 			gameStates[tableIndex].Players = append(gameStates[tableIndex].Players, newAIPlayer)
 			gameStates[tableIndex].Table.CurPlayers++
 		}
-		gameStates[tableIndex].Table.Status = "playing"                         // Set the table status to playing
-		tables[tableIndex].CurPlayers = gameStates[tableIndex].Table.CurPlayers // Update the quick table view players count
-		tables[tableIndex].Status = gameStates[tableIndex].Table.Status         // Update the quick table view status
+		gameStates[tableIndex].Table.Status = "playing"                                                                                   // Set the table status to playing
+		tables[tableIndex].CurPlayers = gameStates[tableIndex].Table.CurPlayers                                                           // Update the quick table view players count
+		tables[tableIndex].Status = gameStates[tableIndex].Table.Status                                                                   // Update the quick table view status
+		gameStates[tableIndex].Players[0].Status = STATUS_PLAYING                                                                         // make the first player status to playing
+		gameStates[tableIndex].LastMovePlayed = "Game Started, Waiting for " + gameStates[tableIndex].Players[0].Name + " to make a move" // Update the last move played to indicate the game has started
 		// deal cards to all players
 		for i := 0; i < gameStates[tableIndex].Table.CurPlayers; i++ {
 			player := &gameStates[tableIndex].Players[i]
@@ -317,17 +321,27 @@ func getGameState(c *gin.Context) {
 	activePlayerWC := 0
 	activePlayerBC := 0
 	activePlayerValidMove := ""
-
+	index := 0
 	for _, player := range gameStates[tableIndex].Players {
+
 		if player.Name == playerName {
 			activePlayerName = player.Name
 			activePlayerStatus = player.Status
+			if player.Status == STATUS_PLAYING {
+				player.ValidMove = setValidmoves(tableIndex, player) // Get valid moves for the player
+			}
 			activePlayerWC = player.Whitecounters
 			activePlayerBC = player.Blackcounters
 			activePlayerHand = player.Hand
 			activePlayerValidMove = player.ValidMove
+			gameStates[tableIndex].Players[index] = player // Update the player in the game state
 			break
 		}
+		index++
+
+	}
+	if gameStates[tableIndex].Table.CurPlayers > 0 { // If there are players at the table, increment the waiting timer
+		gameStates[tableIndex].WaitingTimer++ // Increment the waiting timer for the game state
 	}
 
 	for i, player := range gameStates[tableIndex].Players {
@@ -358,10 +372,13 @@ func getGameState(c *gin.Context) {
 		PlayerValidMove string      `json:"pvm"`
 		PlayerHand      Deck        `json:"ph"`
 		Players         interface{} `json:"pls"`
+		WaitingTimer    int         `json:"wt"` // Timer for waiting for players to make a move
 	}{
+
 		DrawDeck:        gameStates[tableIndex].NumCards,
 		DiscardPile:     gameStates[tableIndex].Discard,
 		LastMovePlayed:  gameStates[tableIndex].LastMovePlayed,
+		WaitingTimer:    gameStates[tableIndex].WaitingTimer,
 		PlayerName:      activePlayerName,
 		PlayerStatus:    activePlayerStatus,
 		PlayerWC:        activePlayerWC,
@@ -372,4 +389,160 @@ func getGameState(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, response)
+
+	if gameStates[tableIndex].WaitingTimer > 20 && gameStates[tableIndex].Table.Status == "waiting" {
+		gameStates[tableIndex].WaitingTimer = 0 // Reset the waiting timer
+		fmt.Println("Waiting timer exceeded 20 seconds, starting new game")
+		StartNewGame(c)
+	}
+}
+
+// checks the player's hand and returns a string of valid moves possible for that player
+func setValidmoves(tableIndex int, player Player) string {
+
+	validMoves := ""
+	if player.Status == STATUS_PLAYING {
+		// Check if any card in hand matches or is higher than discard pile
+		for _, card := range player.Hand {
+			if card.Cardvalue == gameStates[tableIndex].Discard.Cardvalue {
+				validMoves = "Cc" // Player can play a matching card
+				break
+			}
+		}
+		for _, card := range player.Hand {
+			nextValue := gameStates[tableIndex].Discard.Cardvalue + 1
+			if nextValue > 7 {
+				nextValue = 1
+			}
+			if card.Cardvalue == nextValue {
+				validMoves = validMoves + "Nn" // Player can play a matching card
+				break
+			}
+		}
+		if gameStates[tableIndex].NumCards > 0 {
+			validMoves = validMoves + "Dd" // Player can draw
+		}
+		if player.Status == STATUS_PLAYING {
+			validMoves = validMoves + "Ff" // Player can fold
+		}
+	}
+
+	return validMoves
+}
+
+func doVaildMove(c *gin.Context) {
+
+	tableIndex, ok := getTableIndex(c)
+	if !ok { // If no table is specified or invalid table index, return an error
+		c.JSON(http.StatusBadRequest, "Must specify a valid table")
+		return
+	}
+
+	// Find the player and check their status
+	playerName := c.Query("player")
+	var playerFound bool
+	var validMoves string
+	for _, player := range gameStates[tableIndex].Players {
+		if player.Name == playerName {
+			playerFound = true
+			validMoves = player.ValidMove
+			if player.Status != STATUS_PLAYING {
+				c.JSON(http.StatusBadRequest, "It's not your turn to play")
+				return
+			}
+		}
+	}
+	if !playerFound {
+		c.JSON(http.StatusBadRequest, "Player not found at this table")
+		return
+	}
+
+	move := c.Query("VM") // Valid Move (e.g., "C", "N", "D", "F")
+
+	if playerName == "" || move == "" {
+		c.JSON(http.StatusBadRequest, "Must specify both player name and move")
+		return
+	}
+
+	if !strings.Contains(validMoves, move) {
+		c.JSON(http.StatusBadRequest, "Thats not a valid move, please try again")
+		return
+	}
+
+	for i, player := range gameStates[tableIndex].Players {
+		if player.Name == playerName {
+			switch move {
+			case "C", "c": // Current
+				gameStates[tableIndex].LastMovePlayed = playerName + " played a " + gameStates[tableIndex].Discard.Cardname + " onto the discard pile"
+				removeCardFromHand(&player, gameStates[tableIndex].Discard) // Remove the played card from the player's hand
+			case "N", "n": // Next
+				var nextCard Card
+				cardNames := []string{"One", "Two", "Three", "Four", "Five", "Six", "Llama"}
+				if gameStates[tableIndex].Discard.Cardvalue < 7 {
+					nextCard.Cardvalue = gameStates[tableIndex].Discard.Cardvalue + 1
+				} else {
+					nextCard.Cardvalue = 1
+				}
+				nextCard.Cardname = cardNames[nextCard.Cardvalue-1]
+				removeCardFromHand(&player, nextCard)
+				gameStates[tableIndex].LastMovePlayed = playerName + " played a " + nextCard.Cardname + " onto the discard pile"
+			case "D", "d": // Draw
+				gameStates[tableIndex].LastMovePlayed = playerName + " drew a card from the deck"
+				addCardtohand(tableIndex, &player) // Add a card to the player's hand
+			case "F", "f": // Fold
+				gameStates[tableIndex].LastMovePlayed = playerName + " folded"
+				player.Status = STATUS_FOLDED
+				for j := 0; j < len(gameStates[tableIndex].Players); j++ {
+					gameStates[tableIndex].Players[j].LastPlayerToFold = false // Reset last player status
+				}
+				player.LastPlayerToFold = true
+			default:
+				c.JSON(http.StatusBadRequest, "Invalid move specified")
+				return
+			}
+			player.ValidMove = "" // Clear the valid moves after the player has made a move
+			if player.Status == STATUS_PLAYING {
+				player.Status = STATUS_WAITING // Set the current player's status to waiting
+			}
+			// Find the next non-folded player
+			nextPlayerIndex := i
+			allFolded := true
+			for count := 0; count < gameStates[tableIndex].Table.CurPlayers; count++ {
+				nextPlayerIndex = (nextPlayerIndex + 1) % gameStates[tableIndex].Table.CurPlayers
+				if gameStates[tableIndex].Players[nextPlayerIndex].Status != STATUS_FOLDED {
+					allFolded = false
+					gameStates[tableIndex].Players[nextPlayerIndex].Status = STATUS_PLAYING
+					gameStates[tableIndex].LastMovePlayed += ", waiting for " + gameStates[tableIndex].Players[nextPlayerIndex].Name + " to make a move"
+					break
+				}
+			}
+			if allFolded {
+				gameStates[tableIndex].LastMovePlayed += ", Round Over - All players folded"
+			}
+
+			gameStates[tableIndex].Players[i] = player                   // Update the player in the game state
+			c.JSON(http.StatusOK, gameStates[tableIndex].LastMovePlayed) // Return the last move
+			return
+		}
+
+	}
+
+	c.JSON(http.StatusNotFound, "Player not found")
+}
+
+func removeCardFromHand(player *Player, card Card) {
+	for i, c := range player.Hand {
+		if c.Cardvalue == card.Cardvalue {
+			player.Hand = append(player.Hand[:i], player.Hand[i+1:]...) // Remove the card from the player's hand
+			player.NumCards--                                           // Decrement the number of cards in hand
+			return
+		}
+	}
+}
+
+func addCardtohand(tableIndex int, player *Player) {
+
+	player.Hand = append(player.Hand, gameStates[tableIndex].Maindeck[gameStates[tableIndex].NumCards]) // draw the last card from the deck
+	gameStates[tableIndex].NumCards--                                                                   // Decrement the number of cards in the deck
+	player.NumCards++                                                                                   // Increment the number of cards in hand
 }
