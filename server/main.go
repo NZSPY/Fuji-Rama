@@ -92,7 +92,7 @@ func main() {
 	router.GET("/state", getGameState)    // Get the game state for a specific table and player
 	router.GET("/join", joinTable)        // Join a table
 	router.GET("/start", StartNewGame)    // start a new game on a table (this also happens when the table is filled with players), if the table is not fill it will fill the emplty slots with AI Players
-	router.GET("/move", doVaildMove)      // Make a move on the table (play, fold, draw)
+	router.GET("/move", doVaildMoveURL)   // Make a move on the table (play, fold, draw)
 
 	// Set up router and start server
 	router.SetTrustedProxies(nil) // Disable trusted proxies because Gin told me to do it.. (neeed to investigate this further)
@@ -240,21 +240,34 @@ func checkPlayerName(tableIndex int, newplayerName string) bool {
 func StartNewGame(c *gin.Context) {
 	tableIndex := -1
 	ok := false
+	surpress := false
+	if c.Param("sup") == "1" {
+		surpress = true
+	}
+
 	tableIndex, ok = getTableIndex(c)
 	switch {
 	case !ok || tableIndex < 0 || tableIndex >= len(gameStates):
 		// If no table is specified or invalid table index, return an error
-		c.JSON(http.StatusPartialContent, "You need to specify a valid table to start a new game EG: /start?table=ai1")
+		if !surpress {
+			c.JSON(http.StatusPartialContent, "You need to specify a valid table to start a new game EG: /start?table=ai1")
+		}
 		return
 	case gameStates[tableIndex].Table.CurPlayers == 0:
-		c.JSON(http.StatusConflict, "Sorry: table "+tables[tableIndex].Table+" has no human players, please join the table before starting a game")
+		if !surpress {
+			c.JSON(http.StatusConflict, "Sorry: table "+tables[tableIndex].Table+" has no human players, please join the table before starting a game")
+		}
 		return
 	case gameStates[tableIndex].Table.Status == "playing":
-		c.JSON(http.StatusConflict, "Sorry: table "+tables[tableIndex].Table+" has a game in progress, please try a different table")
+		if !surpress {
+			c.JSON(http.StatusConflict, "Sorry: table "+tables[tableIndex].Table+" has a game in progress, please try a different table")
+		}
 		return
 	default:
 		// Start the game state for the table
-		c.JSON(http.StatusOK, "New game started on table "+tables[tableIndex].Table)
+		if !surpress {
+			c.JSON(http.StatusOK, "New game started on table "+tables[tableIndex].Table)
+		}
 		// fill up the empty slots with AI players if there are less than 6 players up to the maxiumum  bots allowed at that table
 		for i := 0; i < gameStates[tableIndex].Table.maxBots; i++ {
 			if gameStates[tableIndex].Table.CurPlayers >= (gameStates[tableIndex].Table.MaxPlayers + gameStates[tableIndex].Table.maxBots) {
@@ -314,26 +327,26 @@ func getGameState(c *gin.Context) {
 	}, len(gameStates[tableIndex].Players))
 
 	// Find active player's hand and valid moves
-	// Initialize active player variables so can be loaded from the game state
-	var activePlayerHand Deck
-	activePlayerName := ""
-	activePlayerStatus := STATUS_WAITING
-	activePlayerWC := 0
-	activePlayerBC := 0
-	activePlayerValidMove := ""
+	// Initialize Requesting  player variables so can be loaded from the game state
+	var reqestingPlayerHand Deck
+	reqestingPlayerName := ""
+	reqestingPlayerStatus := STATUS_WAITING
+	reqestingPlayerWC := 0
+	reqestingPlayerBC := 0
+	reqestingPlayerValidMove := ""
 	index := 0
 	for _, player := range gameStates[tableIndex].Players {
 
 		if player.Name == playerName {
-			activePlayerName = player.Name
-			activePlayerStatus = player.Status
+			reqestingPlayerName = player.Name
+			reqestingPlayerStatus = player.Status
 			if player.Status == STATUS_PLAYING {
 				player.ValidMove = setValidmoves(tableIndex, player) // Get valid moves for the player
 			}
-			activePlayerWC = player.Whitecounters
-			activePlayerBC = player.Blackcounters
-			activePlayerHand = player.Hand
-			activePlayerValidMove = player.ValidMove
+			reqestingPlayerWC = player.Whitecounters
+			reqestingPlayerBC = player.Blackcounters
+			reqestingPlayerHand = player.Hand
+			reqestingPlayerValidMove = player.ValidMove
 			gameStates[tableIndex].Players[index] = player // Update the player in the game state
 			break
 		}
@@ -379,12 +392,12 @@ func getGameState(c *gin.Context) {
 		DiscardPile:     gameStates[tableIndex].Discard,
 		LastMovePlayed:  gameStates[tableIndex].LastMovePlayed,
 		WaitingTimer:    gameStates[tableIndex].WaitingTimer,
-		PlayerName:      activePlayerName,
-		PlayerStatus:    activePlayerStatus,
-		PlayerWC:        activePlayerWC,
-		PlayerBC:        activePlayerBC,
-		PlayerValidMove: activePlayerValidMove,
-		PlayerHand:      activePlayerHand,
+		PlayerName:      reqestingPlayerName,
+		PlayerStatus:    reqestingPlayerStatus,
+		PlayerWC:        reqestingPlayerWC,
+		PlayerBC:        reqestingPlayerBC,
+		PlayerValidMove: reqestingPlayerValidMove,
+		PlayerHand:      reqestingPlayerHand,
 		Players:         playerStates,
 	}
 
@@ -393,7 +406,19 @@ func getGameState(c *gin.Context) {
 	if gameStates[tableIndex].WaitingTimer > 20 && gameStates[tableIndex].Table.Status == "waiting" {
 		gameStates[tableIndex].WaitingTimer = 0 // Reset the waiting timer
 		fmt.Println("Waiting timer exceeded 20 seconds, starting new game")
+		c.Params = []gin.Param{{Key: "sup", Value: "1"}}
 		StartNewGame(c)
+	}
+
+	if gameStates[tableIndex].WaitingTimer > 30 && gameStates[tableIndex].Table.Status == "playing" {
+		gameStates[tableIndex].WaitingTimer = 0 // Reset the waiting timer
+		for i := 0; i < len(gameStates[tableIndex].Players); i++ {
+			if gameStates[tableIndex].Players[i].Status == STATUS_PLAYING {
+				doVaildMove(tableIndex, i, "F") // If the player has not made a move in 30 seconds, fold them
+				fmt.Println("Waiting timer exceeded 30 seconds, folding", gameStates[tableIndex].Players[i].Name)
+				break // Exit the loop after folding the first player who is still playing
+			}
+		}
 	}
 }
 
@@ -430,11 +455,13 @@ func setValidmoves(tableIndex int, player Player) string {
 	return validMoves
 }
 
-func doVaildMove(c *gin.Context) {
+func doVaildMoveURL(c *gin.Context) {
 
 	tableIndex, ok := getTableIndex(c)
 	if !ok { // If no table is specified or invalid table index, return an error
+
 		c.JSON(http.StatusBadRequest, "Must specify a valid table")
+
 		return
 	}
 
@@ -442,107 +469,111 @@ func doVaildMove(c *gin.Context) {
 	playerName := c.Query("player")
 	var playerFound bool
 	var validMoves string
+	playerIndex := -1
+	i := -1
 	for _, player := range gameStates[tableIndex].Players {
+		i++
 		if player.Name == playerName {
 			playerFound = true
+			playerIndex = i // Store the index of the player
 			validMoves = player.ValidMove
 			if player.Status != STATUS_PLAYING {
+
 				c.JSON(http.StatusBadRequest, "It's not your turn to play")
+
 				return
 			}
 		}
 	}
 	if !playerFound {
+
 		c.JSON(http.StatusBadRequest, "Player not found at this table")
+
 		return
 	}
 
 	move := c.Query("VM") // Valid Move (e.g., "C", "N", "D", "F")
-
 	if playerName == "" || move == "" {
+
 		c.JSON(http.StatusBadRequest, "Must specify both player name and move")
+
 		return
 	}
-
 	if !strings.Contains(validMoves, move) {
+
 		c.JSON(http.StatusBadRequest, "Thats not a valid move, please try again")
+
 		return
 	}
 
-	for i, player := range gameStates[tableIndex].Players {
-		if player.Name == playerName {
-			switch move {
-			case "C", "c": // Current
-				gameStates[tableIndex].LastMovePlayed = playerName + " played a " + gameStates[tableIndex].Discard.Cardname + " onto the discard pile"
-				removeCardFromHand(&player, gameStates[tableIndex].Discard) // Remove the played card from the player's hand
-			case "N", "n": // Next
-				var nextCard Card
-				cardNames := []string{"One", "Two", "Three", "Four", "Five", "Six", "Llama"}
-				if gameStates[tableIndex].Discard.Cardvalue < 7 {
-					nextCard.Cardvalue = gameStates[tableIndex].Discard.Cardvalue + 1
-				} else {
-					nextCard.Cardvalue = 1
-				}
-				nextCard.Cardname = cardNames[nextCard.Cardvalue-1]
-				removeCardFromHand(&player, nextCard)
-				gameStates[tableIndex].LastMovePlayed = playerName + " played a " + nextCard.Cardname + " onto the discard pile"
-			case "D", "d": // Draw
-				gameStates[tableIndex].LastMovePlayed = playerName + " drew a card from the deck"
-				addCardtohand(tableIndex, &player) // Add a card to the player's hand
-			case "F", "f": // Fold
-				gameStates[tableIndex].LastMovePlayed = playerName + " folded"
-				player.Status = STATUS_FOLDED
-				for j := 0; j < len(gameStates[tableIndex].Players); j++ {
-					gameStates[tableIndex].Players[j].LastPlayerToFold = false // Reset last player status
-				}
-				player.LastPlayerToFold = true
-			default:
-				c.JSON(http.StatusBadRequest, "Invalid move specified")
-				return
-			}
-			player.ValidMove = "" // Clear the valid moves after the player has made a move
-			if player.Status == STATUS_PLAYING {
-				player.Status = STATUS_WAITING // Set the current player's status to waiting
-			}
-			// Find the next non-folded player
-			nextPlayerIndex := i
-			allFolded := true
-			for count := 0; count < gameStates[tableIndex].Table.CurPlayers; count++ {
-				nextPlayerIndex = (nextPlayerIndex + 1) % gameStates[tableIndex].Table.CurPlayers
-				if gameStates[tableIndex].Players[nextPlayerIndex].Status != STATUS_FOLDED {
-					allFolded = false
-					gameStates[tableIndex].Players[nextPlayerIndex].Status = STATUS_PLAYING
-					gameStates[tableIndex].LastMovePlayed += ", waiting for " + gameStates[tableIndex].Players[nextPlayerIndex].Name + " to make a move"
-					break
-				}
-			}
-			if allFolded {
-				gameStates[tableIndex].LastMovePlayed += ", Round Over - All players folded"
-			}
+	doVaildMove(tableIndex, playerIndex, move) // Call the doVaildMove function with the player and move
+	c.JSON(http.StatusOK, gameStates[tableIndex].LastMovePlayed)
 
-			gameStates[tableIndex].Players[i] = player                   // Update the player in the game state
-			c.JSON(http.StatusOK, gameStates[tableIndex].LastMovePlayed) // Return the last move
-			return
-		}
-
-	}
-
-	c.JSON(http.StatusNotFound, "Player not found")
 }
 
-func removeCardFromHand(player *Player, card Card) {
-	for i, c := range player.Hand {
+// Perform the valid move for the player at the specified table
+func doVaildMove(tableIndex int, playerIndex int, move string) {
+
+	switch move {
+	case "C", "c": // Current
+		gameStates[tableIndex].LastMovePlayed = gameStates[tableIndex].Players[playerIndex].Name + " played a " + gameStates[tableIndex].Discard.Cardname + " onto the discard pile"
+		removeCardFromHand(tableIndex, playerIndex, gameStates[tableIndex].Discard) // Remove the played card from the player's hand
+	case "N", "n": // Next
+		var nextCard Card
+		cardNames := []string{"One", "Two", "Three", "Four", "Five", "Six", "Llama"}
+		if gameStates[tableIndex].Discard.Cardvalue < 7 {
+			nextCard.Cardvalue = gameStates[tableIndex].Discard.Cardvalue + 1
+		} else {
+			nextCard.Cardvalue = 1
+		}
+		nextCard.Cardname = cardNames[nextCard.Cardvalue-1]
+		removeCardFromHand(tableIndex, playerIndex, nextCard) // Remove the played card from the player's hand
+		gameStates[tableIndex].LastMovePlayed = gameStates[tableIndex].Players[playerIndex].Name + " played a " + nextCard.Cardname + " onto the discard pile"
+	case "D", "d": // Draw
+		gameStates[tableIndex].LastMovePlayed = gameStates[tableIndex].Players[playerIndex].Name + " drew a card from the deck"
+		addCardtohand(tableIndex, playerIndex) // Add a card to the player's hand
+	case "F", "f": // Fold
+		gameStates[tableIndex].LastMovePlayed = gameStates[tableIndex].Players[playerIndex].Name + " folded"
+		gameStates[tableIndex].Players[playerIndex].Status = STATUS_FOLDED
+		for j := 0; j < len(gameStates[tableIndex].Players); j++ {
+			gameStates[tableIndex].Players[j].LastPlayerToFold = false // Reset last player status
+		}
+		gameStates[tableIndex].Players[playerIndex].LastPlayerToFold = true
+
+	}
+	gameStates[tableIndex].Players[playerIndex].ValidMove = "" // Clear the valid moves after the player has made a move
+	if gameStates[tableIndex].Players[playerIndex].Status != STATUS_FOLDED {
+		gameStates[tableIndex].Players[playerIndex].Status = STATUS_WAITING // Set the current player's status to waiting if they didn't fold
+	}
+
+	// Find the next non-folded player
+	foldedcount := 0
+	nextPlayerIndex := 0
+	for foldedcount < gameStates[tableIndex].Table.CurPlayers {
+		nextPlayerIndex = (playerIndex + 1) % gameStates[tableIndex].Table.CurPlayers
+		if gameStates[tableIndex].Players[nextPlayerIndex].Status == STATUS_FOLDED {
+			foldedcount++ // Count the number of folded players
+		} else {
+			gameStates[tableIndex].Players[nextPlayerIndex].Status = STATUS_PLAYING // Set the next player to playing status
+			break
+		}
+	}
+
+}
+
+func removeCardFromHand(tableIndex int, playerIndex int, card Card) {
+	for i, c := range gameStates[tableIndex].Players[playerIndex].Hand {
 		if c.Cardvalue == card.Cardvalue {
-			player.Hand = append(player.Hand[:i], player.Hand[i+1:]...) // Remove the card from the player's hand
-			player.NumCards--                                           // Decrement the number of cards in hand
+			gameStates[tableIndex].Players[playerIndex].Hand = append(gameStates[tableIndex].Players[playerIndex].Hand[:i], gameStates[tableIndex].Players[playerIndex].Hand[i+1:]...) // Remove the card from the player's hand
+			gameStates[tableIndex].Players[playerIndex].NumCards--                                                                                                                     // Decrement the number of cards in hand
 			return
 		}
 	}
 }
 
-func addCardtohand(tableIndex int, player *Player) {
+func addCardtohand(tableIndex int, playerIndex int) {
 
-	player.Hand = append(player.Hand, gameStates[tableIndex].Maindeck[gameStates[tableIndex].NumCards]) // draw the last card from the deck
-	gameStates[tableIndex].NumCards--                                                                   // Decrement the number of cards in the deck
-	player.NumCards++                                                                                   // Increment the number of cards in hand
+	gameStates[tableIndex].Players[playerIndex].Hand = append(gameStates[tableIndex].Players[playerIndex].Hand, gameStates[tableIndex].Maindeck[gameStates[tableIndex].NumCards]) // draw the last card from the deck
+	gameStates[tableIndex].NumCards--                                                                                                                                             // Decrement the number of cards in the deck
+	gameStates[tableIndex].Players[playerIndex].NumCards++                                                                                                                        // Increment the number of cards in hand
 }
