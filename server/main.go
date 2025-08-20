@@ -220,7 +220,7 @@ func joinTable(c *gin.Context) {
 		}
 		tables[tableIndex].CurPlayers = gameStates[tableIndex].Table.CurPlayers // update the quick table view players count
 		tables[tableIndex].Status = gameStates[tableIndex].Table.Status         // update the quick table view status
-		gameStates[tableIndex].WaitingTimer = 0                                 // Reset the waiting timer for the game state
+		gameStates[tableIndex].WaitingTimer = 30                                // Reset the waiting timer for the game state
 	}
 }
 
@@ -352,8 +352,8 @@ func getGameState(c *gin.Context) {
 		index++
 
 	}
-	if gameStates[tableIndex].Table.CurPlayers > 0 { // If there are players at the table, increment the waiting timer
-		gameStates[tableIndex].WaitingTimer++ // Increment the waiting timer for the game state
+	if gameStates[tableIndex].Table.CurPlayers > 0 { // If there are players at the table, decrement the waiting timer
+		gameStates[tableIndex].WaitingTimer-- // decrement the waiting timer for the game state
 	}
 
 	for i, player := range gameStates[tableIndex].Players {
@@ -384,13 +384,13 @@ func getGameState(c *gin.Context) {
 		PlayerValidMove string      `json:"pvm"`
 		PlayerHand      Deck        `json:"ph"`
 		Players         interface{} `json:"pls"`
-		WaitingTimer    int         `json:"wt"` // Timer for waiting for players to make a move
+		//WaitingTimer    int         `json:"wt"` // Timer for waiting for players to make a move
 	}{
 
-		DrawDeck:        gameStates[tableIndex].NumCards,
-		DiscardPile:     gameStates[tableIndex].Discard,
-		LastMovePlayed:  gameStates[tableIndex].LastMovePlayed,
-		WaitingTimer:    gameStates[tableIndex].WaitingTimer,
+		DrawDeck:       gameStates[tableIndex].NumCards,
+		DiscardPile:    gameStates[tableIndex].Discard,
+		LastMovePlayed: gameStates[tableIndex].LastMovePlayed,
+		//WaitingTimer:    gameStates[tableIndex].WaitingTimer,
 		PlayerName:      reqestingPlayerName,
 		PlayerStatus:    reqestingPlayerStatus,
 		PlayerWC:        reqestingPlayerWC,
@@ -402,25 +402,24 @@ func getGameState(c *gin.Context) {
 
 	c.JSON(http.StatusOK, response)
 
-	if gameStates[tableIndex].WaitingTimer > 20 && gameStates[tableIndex].Table.Status == "waiting" {
-		gameStates[tableIndex].WaitingTimer = 0 // Reset the waiting timer
+	if gameStates[tableIndex].WaitingTimer <= 10 && gameStates[tableIndex].Table.Status == "waiting" {
+		gameStates[tableIndex].WaitingTimer = 30 // Reset the waiting timer
 		fmt.Println("Waiting timer exceeded 20 seconds, starting new game")
 		c.Params = []gin.Param{{Key: "sup", Value: "1"}}
 		StartNewGame(c)
 	}
-	if gameStates[tableIndex].WaitingTimer > 15 && gameStates[tableIndex].Table.Status == "playing" {
+	if gameStates[tableIndex].WaitingTimer <= 15 && gameStates[tableIndex].Table.Status == "playing" {
 		for i := 0; i < len(gameStates[tableIndex].Players); i++ {
 			if gameStates[tableIndex].Players[i].Status == STATUS_PLAYING && !gameStates[tableIndex].Players[i].Human {
-				move := aimove(tableIndex, i) // AI move function to determine the AI's move)
-				fmt.Println("AI Player", gameStates[tableIndex].Players[i].Name, "is making a move:", move)
+				move := aimove(tableIndex, i)    // AI move function to determine the AI's move)
 				doVaildMove(tableIndex, i, move) // Perform the AI's move
 				break                            // Exit the loop after the AI makes a move
 			}
 		}
 	}
 
-	if gameStates[tableIndex].WaitingTimer > 30 && gameStates[tableIndex].Table.Status == "playing" {
-		gameStates[tableIndex].WaitingTimer = 0 // Reset the waiting timer
+	if gameStates[tableIndex].WaitingTimer <= 0 && gameStates[tableIndex].Table.Status == "playing" {
+		gameStates[tableIndex].WaitingTimer = 30 // Reset the waiting timer
 		for i := 0; i < len(gameStates[tableIndex].Players); i++ {
 			if gameStates[tableIndex].Players[i].Status == STATUS_PLAYING {
 				doVaildMove(tableIndex, i, "F") // If the player has not made a move in 30 seconds, fold them
@@ -522,7 +521,7 @@ func doVaildMoveURL(c *gin.Context) {
 
 // Perform the valid move for the player at the specified table
 func doVaildMove(tableIndex int, playerIndex int, move string) {
-	gameStates[tableIndex].WaitingTimer = 0 // Reset the waiting timer
+	gameStates[tableIndex].WaitingTimer = 30 // Reset the waiting timer
 	switch move {
 	case "C", "c": // Current
 		gameStates[tableIndex].LastMovePlayed = gameStates[tableIndex].Players[playerIndex].Name + " played a " + gameStates[tableIndex].Discard.Cardname + " onto the discard pile"
@@ -606,10 +605,9 @@ func addCardtohand(tableIndex int, playerIndex int) {
 	gameStates[tableIndex].Players[playerIndex].NumCards++                                                                                                                        // Increment the number of cards in hand
 }
 
-// aiMove simulates an player's
+// aiMove simulates an player's just dumb move by returning the first valid move from the AI player's valid moves.
+// This is a placeholder for a more sophisticated AI logic that could be implemented later.
 func aimove(tableIndex int, playerIndex int) string {
 	move := string(gameStates[tableIndex].Players[playerIndex].ValidMove[0]) // Get the first valid move for the AI player
-	fmt.Println("AI Player", gameStates[tableIndex].Players[playerIndex].Name, " ", gameStates[tableIndex].Players[playerIndex].ValidMove, "is making a move:", move)
-
-	return move // Return the move
+	return move                                                              // Return the move
 }

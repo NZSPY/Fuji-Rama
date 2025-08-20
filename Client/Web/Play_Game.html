@@ -21,11 +21,16 @@
 <body>
 
     <h2>Game State View</h2>
-    <div id="tableContainer"></div>
-
-    <script>
+    <button onclick="window.location.href='Start_Here.html'" style="margin: 10px;">Return to Start</button>
+ Waiting for move<div id="timer" style="font-size: 24px; color: #333;">30</div>
+    <div id="tableContainer">/div>
+  <script>
+        // Get URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const tableId = urlParams.get('table') || 'default'; // Use 'default' as fallback
+        const playerName = urlParams.get('player') || 'unknown'; // Use 'unknown' as fallback
         function fetchGameState() {
-            fetch('http://192.168.68.100:8080/state?table=ai1&player=Simon')
+            fetch(`http://192.168.68.100:8080/state?table=${tableId}&player=${playerName}`)
                 .then(response => {
                     if (!response.ok) {
                         throw new Error(`HTTP error! status: ${response.status}`);
@@ -68,8 +73,9 @@
                     allTablesHtml += `<td><img src="LlamaCard${cardValue}.png" alt="Card ${cardValue}" style="width:100px; margin:2px;"></td></tr>`;
                 });
                 const lastMovePlayed = Array.isArray(data.lmp)? data.lmp.join(', ') : data.lmp;
-                const waitTimer = Array.isArray(data.wt)? data.wt.join(', ') : data.wt;
-                allTablesHtml += `<tr><td colspan=2>${lastMovePlayed} :${waitTimer}</td></tr>`;
+                //const waitTimer = Array.isArray(data.wt)? data.wt.join(', ') : data.wt;
+                //allTablesHtml += `<tr><td colspan=2>${lastMovePlayed} :${waitTimer}</td></tr>`;
+                allTablesHtml += `<tr><td colspan=2>${lastMovePlayed}</td></tr>`;
                 allTablesHtml += '</table>';
      
 
@@ -103,7 +109,6 @@
         <button id="joinTableButton" onclick="moveNext()">Play Next</button>
         <button id="joinTableButton" onclick="moveDraw()">Draw Card</button>
         <button id="joinTableButton" onclick="moveFold()">Fold</button>
-        <button onclick="location.reload()">Refresh</button>
     </td></tr>
    
     <tr><td>${moves}</td></tr>`;
@@ -135,39 +140,108 @@
         }
         
         function moveCurrent() {
-            var tableId = "ai1"; // Hardcoded table ID for this example
-            var playerName = "Simon"; // Hardcoded player name for this example
-            window.open('http://192.168.68.100:8080/move?table=' + tableId + '&player=' + playerName + "&VM=C", '_blank');
-            location.reload();
+            fetch('http://192.168.68.100:8080/move?table=' + tableId + '&player=' + playerName + "&VM=C")
+            .then(response => {
+                if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(() => {
+                fetchGameState(); // Refresh the game state
+            })
+            .catch(error => {
+                console.error('Error making move:', error);
+            });
         }
 
         function moveNext() {
-            var tableId = "ai1"; // Hardcoded table ID for this example
-            var playerName = "Simon"; // Hardcoded player name for this example
-            window.open('http://192.168.68.100:8080/move?table=' + tableId + '&player=' + playerName+ "&VM=N", '_blank');
-            location.reload();
+            fetch('http://192.168.68.100:8080/move?table=' + tableId + '&player=' + playerName+ "&VM=N")
+            .then(response => {
+                if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(() => {
+                fetchGameState(); // Refresh the game state
+            })
+            .catch(error => {
+                console.error('Error making move:', error);
+            });
         }
 
         function moveDraw() {
-            var tableId = "ai1"; // Hardcoded table ID for this example
-            var playerName = "Simon"; // Hardcoded player name for this example
-            window.open('http://192.168.68.100:8080/move?table=' + tableId + '&player=' + playerName+ "&VM=D", '_blank');
-            location.reload();
+            fetch('http://192.168.68.100:8080/move?table=' + tableId + '&player=' + playerName+ "&VM=D")
+            .then(response => {
+                if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(() => {
+                fetchGameState(); // Refresh the game state
+            })
+            .catch(error => {
+                console.error('Error making move:', error);
+            });
         }
 
         function moveFold() {
-            var tableId = "ai1"; // Hardcoded table ID for this example
-            var playerName = "Simon"; // Hardcoded player name for this example
-            window.open('http://192.168.68.100:8080/move?table=' + tableId + '&player=' + playerName+ "&VM=F", '_blank');
-            location.reload();
+            fetch('http://192.168.68.100:8080/move?table=' + tableId + '&player=' + playerName+ "&VM=F")
+            .then(response => {
+                if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(() => {
+                fetchGameState(); // Refresh the game state
+            })
+            .catch(error => {
+                console.error('Error making move:', error);
+            });
         }
 
 
         // Fetch data when page loads
         fetchGameState();
 
-        // Refresh every 5 seconds
-       // setInterval(fetchGameState, 5000);
+   
+        let timeLeft = 30;
+        const timerElement = document.getElementById('timer');
+        
+        function updateTimer() {
+            if (timeLeft > 0) {
+                timeLeft--;
+                timerElement.textContent = timeLeft;
+            } else {
+                timeLeft = 30; // Reset timer
+            }
+        }
+        
+        setInterval(updateTimer, 1000);
+ 
+
+    // Keep track of the last data state
+    let lastDataState = null;
+    // Smooth refresh every second
+    setInterval(async () => {
+        try {
+            const response = await fetch(`http://192.168.68.100:8080/state?table=${tableId}&player=${playerName}`);
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            const data = await response.json();
+            
+            // Compare with last state
+            if (JSON.stringify(data) !== JSON.stringify(lastDataState)) {
+                displayTable(data);
+                lastDataState = data;
+                timeLeft = 30;
+            }
+        } catch (error) {
+            console.error('Error fetching data:', error);
+        }
+    }, 1000);
     </script>
 </body>
 </html>        
