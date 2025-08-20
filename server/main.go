@@ -47,7 +47,6 @@ const (
 	STATUS_WAITING Status = 0
 	STATUS_PLAYING Status = 1
 	STATUS_FOLDED  Status = 2
-	STATUS_LEFT    Status = 3
 )
 
 // Deck represents a collection of cards.
@@ -409,6 +408,16 @@ func getGameState(c *gin.Context) {
 		c.Params = []gin.Param{{Key: "sup", Value: "1"}}
 		StartNewGame(c)
 	}
+	if gameStates[tableIndex].WaitingTimer > 15 && gameStates[tableIndex].Table.Status == "playing" {
+		for i := 0; i < len(gameStates[tableIndex].Players); i++ {
+			if gameStates[tableIndex].Players[i].Status == STATUS_PLAYING && !gameStates[tableIndex].Players[i].Human {
+				move := aimove(tableIndex, i) // AI move function to determine the AI's move)
+				fmt.Println("AI Player", gameStates[tableIndex].Players[i].Name, "is making a move:", move)
+				doVaildMove(tableIndex, i, move) // Perform the AI's move
+				break                            // Exit the loop after the AI makes a move
+			}
+		}
+	}
 
 	if gameStates[tableIndex].WaitingTimer > 30 && gameStates[tableIndex].Table.Status == "playing" {
 		gameStates[tableIndex].WaitingTimer = 0 // Reset the waiting timer
@@ -513,7 +522,7 @@ func doVaildMoveURL(c *gin.Context) {
 
 // Perform the valid move for the player at the specified table
 func doVaildMove(tableIndex int, playerIndex int, move string) {
-
+	gameStates[tableIndex].WaitingTimer = 0 // Reset the waiting timer
 	switch move {
 	case "C", "c": // Current
 		gameStates[tableIndex].LastMovePlayed = gameStates[tableIndex].Players[playerIndex].Name + " played a " + gameStates[tableIndex].Discard.Cardname + " onto the discard pile"
@@ -535,30 +544,49 @@ func doVaildMove(tableIndex int, playerIndex int, move string) {
 	case "F", "f": // Fold
 		gameStates[tableIndex].LastMovePlayed = gameStates[tableIndex].Players[playerIndex].Name + " folded"
 		gameStates[tableIndex].Players[playerIndex].Status = STATUS_FOLDED
-		for j := 0; j < len(gameStates[tableIndex].Players); j++ {
-			gameStates[tableIndex].Players[j].LastPlayerToFold = false // Reset last player status
+		for i := 0; i < len(gameStates[tableIndex].Players); i++ {
+			gameStates[tableIndex].Players[i].LastPlayerToFold = false // Reset last player status
 		}
 		gameStates[tableIndex].Players[playerIndex].LastPlayerToFold = true
 
 	}
+
+	// Update the player's  status
 	gameStates[tableIndex].Players[playerIndex].ValidMove = "" // Clear the valid moves after the player has made a move
 	if gameStates[tableIndex].Players[playerIndex].Status != STATUS_FOLDED {
 		gameStates[tableIndex].Players[playerIndex].Status = STATUS_WAITING // Set the current player's status to waiting if they didn't fold
 	}
 
-	// Find the next non-folded player
+	// check if any players are still playing
 	foldedcount := 0
-	nextPlayerIndex := 0
-	for foldedcount < gameStates[tableIndex].Table.CurPlayers {
-		nextPlayerIndex = (playerIndex + 1) % gameStates[tableIndex].Table.CurPlayers
-		if gameStates[tableIndex].Players[nextPlayerIndex].Status == STATUS_FOLDED {
+	for i := 0; i < len(gameStates[tableIndex].Players); i++ {
+		if gameStates[tableIndex].Players[i].Status == STATUS_FOLDED {
 			foldedcount++ // Count the number of folded players
-		} else {
-			gameStates[tableIndex].Players[nextPlayerIndex].Status = STATUS_PLAYING // Set the next player to playing status
-			break
 		}
 	}
-
+	if foldedcount >= gameStates[tableIndex].Table.CurPlayers {
+		gameStates[tableIndex].LastMovePlayed = "all are out, adding up the scores"
+	} else {
+		// If there are still players playing, find the next player to play
+		nextPlayerIndex := playerIndex + 1
+		if nextPlayerIndex >= len(gameStates[tableIndex].Players) {
+			nextPlayerIndex = 0 // Wrap around to the first player if we reach the end
+		}
+		for i := 0; i < len(gameStates[tableIndex].Players); i++ {
+			if gameStates[tableIndex].Players[nextPlayerIndex].Status == STATUS_FOLDED {
+				// skip folded players
+			} else {
+				gameStates[tableIndex].Players[nextPlayerIndex].Status = STATUS_PLAYING // Set the next player to playing status
+				gameStates[tableIndex].LastMovePlayed += ", Waiting for " + gameStates[tableIndex].Players[nextPlayerIndex].Name + " to make a move"
+				gameStates[tableIndex].Players[nextPlayerIndex].ValidMove = setValidmoves(tableIndex, gameStates[tableIndex].Players[nextPlayerIndex]) // Set valid moves for the next player
+				break
+			}
+			nextPlayerIndex++
+			if nextPlayerIndex >= len(gameStates[tableIndex].Players) {
+				nextPlayerIndex = 0 // Wrap around to the first player if we reach the end
+			}
+		}
+	}
 }
 
 func removeCardFromHand(tableIndex int, playerIndex int, card Card) {
@@ -576,4 +604,12 @@ func addCardtohand(tableIndex int, playerIndex int) {
 	gameStates[tableIndex].Players[playerIndex].Hand = append(gameStates[tableIndex].Players[playerIndex].Hand, gameStates[tableIndex].Maindeck[gameStates[tableIndex].NumCards]) // draw the last card from the deck
 	gameStates[tableIndex].NumCards--                                                                                                                                             // Decrement the number of cards in the deck
 	gameStates[tableIndex].Players[playerIndex].NumCards++                                                                                                                        // Increment the number of cards in hand
+}
+
+// aiMove simulates an player's
+func aimove(tableIndex int, playerIndex int) string {
+	move := string(gameStates[tableIndex].Players[playerIndex].ValidMove[0]) // Get the first valid move for the AI player
+	fmt.Println("AI Player", gameStates[tableIndex].Players[playerIndex].Name, " ", gameStates[tableIndex].Players[playerIndex].ValidMove, "is making a move:", move)
+
+	return move // Return the move
 }
