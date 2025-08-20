@@ -47,6 +47,7 @@ const (
 	STATUS_WAITING Status = 0
 	STATUS_PLAYING Status = 1
 	STATUS_FOLDED  Status = 2
+	STATUS_WON     Status = 3 // Player has won the round
 )
 
 // Deck represents a collection of cards.
@@ -67,7 +68,6 @@ type Player struct {
 	Score            int
 	Hand             Deck
 	NumCards         int    // Number of cards in hand
-	LastMove         string // Last move made by the player (e.g., "play", "fold", "draw")
 	ValidMove        string // List of valid moves for the player (e.g., "play", "fold", "draw")
 	Playorder        int
 	LastPlayerToFold bool // Indicates if this player was the last to play or fold (used to determine the first player for next round)
@@ -184,7 +184,6 @@ func joinTable(c *gin.Context) {
 		Score:            0,
 		Hand:             Deck{},
 		NumCards:         0,     // Initially, the player has no cards in hand
-		LastMove:         "",    // Initially, the player has not made any moves
 		ValidMove:        "",    // Initially, the player has not made a valid move
 		Playorder:        0,     // Set the play order to the current number of players
 		LastPlayerToFold: false, // Initially, the player is not the last to play or fold
@@ -408,10 +407,10 @@ func getGameState(c *gin.Context) {
 		c.Params = []gin.Param{{Key: "sup", Value: "1"}}
 		StartNewGame(c)
 	}
-	if gameStates[tableIndex].WaitingTimer <= 15 && gameStates[tableIndex].Table.Status == "playing" {
+	if gameStates[tableIndex].WaitingTimer <= 25 && gameStates[tableIndex].Table.Status == "playing" {
 		for i := 0; i < len(gameStates[tableIndex].Players); i++ {
 			if gameStates[tableIndex].Players[i].Status == STATUS_PLAYING && !gameStates[tableIndex].Players[i].Human {
-				move := aimove(tableIndex, i)    // AI move function to determine the AI's move)
+				move := aiMove(tableIndex, i)    // AI move function to determine the AI's move)
 				doVaildMove(tableIndex, i, move) // Perform the AI's move
 				break                            // Exit the loop after the AI makes a move
 			}
@@ -428,6 +427,13 @@ func getGameState(c *gin.Context) {
 			}
 		}
 	}
+
+	// Check if the round has ended and handle the end of the round logic
+	if checkRoundEndCondtions(tableIndex) {
+		//endRound(tableIndex) // Call the end round function to handle the end of the round logic
+		fmt.Println("Round ended for table", tables[tableIndex].Table)
+	}
+
 }
 
 // checks the player's hand and returns a string of valid moves possible for that player
@@ -537,6 +543,7 @@ func doVaildMove(tableIndex int, playerIndex int, move string) {
 		nextCard.Cardname = cardNames[nextCard.Cardvalue-1]
 		removeCardFromHand(tableIndex, playerIndex, nextCard) // Remove the played card from the player's hand
 		gameStates[tableIndex].LastMovePlayed = gameStates[tableIndex].Players[playerIndex].Name + " played a " + nextCard.Cardname + " onto the discard pile"
+		gameStates[tableIndex].Discard = nextCard // Update the discard pile with the played card
 	case "D", "d": // Draw
 		gameStates[tableIndex].LastMovePlayed = gameStates[tableIndex].Players[playerIndex].Name + " drew a card from the deck"
 		addCardtohand(tableIndex, playerIndex) // Add a card to the player's hand
@@ -552,19 +559,13 @@ func doVaildMove(tableIndex int, playerIndex int, move string) {
 
 	// Update the player's  status
 	gameStates[tableIndex].Players[playerIndex].ValidMove = "" // Clear the valid moves after the player has made a move
-	if gameStates[tableIndex].Players[playerIndex].Status != STATUS_FOLDED {
+	if gameStates[tableIndex].Players[playerIndex].Status == STATUS_PLAYING {
 		gameStates[tableIndex].Players[playerIndex].Status = STATUS_WAITING // Set the current player's status to waiting if they didn't fold
 	}
 
-	// check if any players are still playing
-	foldedcount := 0
-	for i := 0; i < len(gameStates[tableIndex].Players); i++ {
-		if gameStates[tableIndex].Players[i].Status == STATUS_FOLDED {
-			foldedcount++ // Count the number of folded players
-		}
-	}
-	if foldedcount >= gameStates[tableIndex].Table.CurPlayers {
-		gameStates[tableIndex].LastMovePlayed = "all are out, adding up the scores"
+	// check idf the round end conditions have been met and if not find the next player to play
+	if checkRoundEndCondtions(tableIndex) {
+		fmt.Println("Round ended for table", tables[tableIndex].Table)
 	} else {
 		// If there are still players playing, find the next player to play
 		nextPlayerIndex := playerIndex + 1
@@ -593,6 +594,10 @@ func removeCardFromHand(tableIndex int, playerIndex int, card Card) {
 		if c.Cardvalue == card.Cardvalue {
 			gameStates[tableIndex].Players[playerIndex].Hand = append(gameStates[tableIndex].Players[playerIndex].Hand[:i], gameStates[tableIndex].Players[playerIndex].Hand[i+1:]...) // Remove the card from the player's hand
 			gameStates[tableIndex].Players[playerIndex].NumCards--                                                                                                                     // Decrement the number of cards in hand
+			if gameStates[tableIndex].Players[playerIndex].NumCards <= 0 {
+				gameStates[tableIndex].Players[playerIndex].Status = STATUS_WON // If the player has no cards left, set their status to won
+				fmt.Println(gameStates[tableIndex].Players[playerIndex].Name, "has won the round!")
+			}
 			return
 		}
 	}
@@ -607,7 +612,26 @@ func addCardtohand(tableIndex int, playerIndex int) {
 
 // aiMove simulates an player's just dumb move by returning the first valid move from the AI player's valid moves.
 // This is a placeholder for a more sophisticated AI logic that could be implemented later.
-func aimove(tableIndex int, playerIndex int) string {
+func aiMove(tableIndex int, playerIndex int) string {
 	move := string(gameStates[tableIndex].Players[playerIndex].ValidMove[0]) // Get the first valid move for the AI player
 	return move                                                              // Return the move
+}
+
+func checkRoundEndCondtions(tableIndex int) bool {
+	// Check if all players have folded or if the deck is empty
+	foldedCount := 0
+	wonCount := 0
+	for _, player := range gameStates[tableIndex].Players {
+		if player.Status == STATUS_FOLDED {
+			foldedCount++
+		}
+		if player.Status == STATUS_WON {
+			wonCount++
+		}
+	}
+	if foldedCount >= gameStates[tableIndex].Table.CurPlayers || gameStates[tableIndex].NumCards <= 0 || wonCount >= 1 {
+		gameStates[tableIndex].LastMovePlayed = "(RO) Round over, adding up the scores"
+		return true // Round ends if all players have folded or no cards left in the deck
+	}
+	return false // Round continues if there are still players playing and cards available
 }

@@ -21,8 +21,9 @@
 <body>
 
     <h2>Game State View</h2>
-    <button onclick="window.location.href='Start_Here.html'" style="margin: 10px;">Return to Start</button>
- Waiting for move<div id="timer" style="font-size: 24px; color: #333;">30</div>
+    <button onclick="window.location.href='index.html'" style="margin: 10px;">Return to Start</button>
+
+ 
     <div id="tableContainer">/div>
   <script>
         // Get URL parameters
@@ -73,8 +74,7 @@
                     allTablesHtml += `<td><img src="LlamaCard${cardValue}.png" alt="Card ${cardValue}" style="width:100px; margin:2px;"></td></tr>`;
                 });
                 const lastMovePlayed = Array.isArray(data.lmp)? data.lmp.join(', ') : data.lmp;
-                //const waitTimer = Array.isArray(data.wt)? data.wt.join(', ') : data.wt;
-                //allTablesHtml += `<tr><td colspan=2>${lastMovePlayed} :${waitTimer}</td></tr>`;
+
                 allTablesHtml += `<tr><td colspan=2>${lastMovePlayed}</td></tr>`;
                 allTablesHtml += '</table>';
      
@@ -86,10 +86,10 @@
                 const blackCounters = Array.isArray(data.pbc) ? data.pbc.join(', ') : data.pbc;
                 const whiteCounters = Array.isArray(data.pwc) ? data.pwc.join(', ') : data.pwc;
                 const score = (blackCounters*10) + whiteCounters;
-                allTablesHtml += `<table style="width: auto;"><tr><th>${playerName} you have ${blackCounters} Black and ${whiteCounters} White Counters
+                allTablesHtml += `<table style="width: auto;"><tr><th  colspan="2">${playerName} you have ${blackCounters} Black and ${whiteCounters} White Counters
                     <br> Score: ${score}
                     <br>and your current cards are </th></tr>`;
-                let handHtml = '<td>';
+                let handHtml = '<td colspan="2">';
                 if (Array.isArray(data.ph)) {
                     data.ph.forEach(card => {
                         const cardValue = typeof card === 'object' ? card.Cardvalue : card;
@@ -102,16 +102,23 @@
                 allTablesHtml += `<tr>${handHtml}</tr>`;
                 
                 // Add valid moves in a new row
-                allTablesHtml += '<tr><th>Valid Moves</th></tr>';
-                const moves = Array.isArray(data.pvm) ? data.pvm.join(', ') : (data.pvm || 'N/A');
+                allTablesHtml += '<tr><th  colspan="2">Valid Moves</th></tr>';
+                const moves = Array.isArray(data.pvm) ? data.pvm.join(', ') : (data.pvm || 'n/a');
     allTablesHtml += `<tr><td>
-        <button id="joinTableButton" onclick="moveCurrent()">Play Current</button>
-        <button id="joinTableButton" onclick="moveNext()">Play Next</button>
-        <button id="joinTableButton" onclick="moveDraw()">Draw Card</button>
-        <button id="joinTableButton" onclick="moveFold()">Fold</button>
-    </td></tr>
-   
-    <tr><td>${moves}</td></tr>`;
+        ${data.pls.find(p => p.n === playerName)?.s === 2 
+            ? '<p>You have folded, Please wait for other players to finsh</p>' 
+            : data.pls.find(p => p.n === playerName)?.s === 0
+            ? '<p>Please wait for other players have thier turn</p>'
+            : data.pls.find(p => p.n === playerName)?.s === 1
+            ? `${(moves.includes('C') || moves.includes('N') || moves.includes('D') || moves.includes('F'))
+                ? `${moves.includes('C') ? '<button onclick="moveCurrent()">Play Current</button>' : ''}
+                   ${moves.includes('N') ? '<button onclick="moveNext()">Play Next</button>' : ''}
+                   ${moves.includes('D') ? '<button onclick="moveDraw()">Draw Card</button>' : ''}
+                   ${moves.includes('F') ? '<button onclick="moveFold()">Fold</button>' : ''}`
+                : ''}</td><TD><BR><B>Time remaining:</B> <div id="timer" style="font-size: 24px; color: #333;">30</div>`
+            : '<p>The round is over</p>'
+        }
+    </td></tr>`;
     allTablesHtml += '</table>';
 }
 
@@ -128,7 +135,7 @@
                    const status =   player.s === 0 ? "Waiting" :
                                     player.s === 1 ? "Playing" :
                                     player.s === 2 ? "Folded" :
-                                    player.s === 3 ? "Left the server" : "UNKNOWN";
+                                    player.s === 3 ? "Won the round" : "UNKNOWN";
                    allTablesHtml +=`<tr><th>${player.n} has ${player.bc} Black and ${player.wc} White Counters
                     <br> Score: ${score}
                     <br>and is  ${status}</th></tr>
@@ -209,14 +216,16 @@
 
    
         let timeLeft = 30;
-        const timerElement = document.getElementById('timer');
         
         function updateTimer() {
-            if (timeLeft > 0) {
-                timeLeft--;
-                timerElement.textContent = timeLeft;
-            } else {
-                timeLeft = 30; // Reset timer
+            const timerElement = document.getElementById('timer');
+            if (timerElement) {
+                if (timeLeft > 0) {
+                    timeLeft--;
+                    timerElement.textContent = timeLeft;
+                } else {
+                    timeLeft = 30; // Reset timer
+                }
             }
         }
         
