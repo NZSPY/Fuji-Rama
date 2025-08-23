@@ -28,25 +28,27 @@
 Table to join: <input type="text" id="tableID" placeholder="Enter table id (t)">
 player name: <input type="text" id="playerName" placeholder="Enter your name">
 <button id="joinTableButton" onclick="openTableAndRefresh()">Join Table</button>
+<div id="errorMessage" style="color: red;"></div>
 <script>
 function openTableAndRefresh() {
     var tableId = document.getElementById('tableID').value;
     var playerName = document.getElementById('playerName').value;
     fetch('http://192.168.68.100:8080/join?table=' + tableId + '&player=' + playerName)
-    .then(response => {
-                if (!response.ok) {
+        .then(response => {
+            if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                return response.json();
-            })
-            .then(() => {
-                fetchGameState(); // Refresh the game state
-            })
-            .catch(error => {
-                console.error('Error making move:', error);
-            });
-// Open page Play_Game.html with tableId and playerName
-window.location.href = 'Play_Game.html?table=' + tableId + '&player=' + playerName;
+            }
+            return response.json();
+        })
+        .then(() => {
+          
+            // Open page Play_Game.html with tableId and playerName
+            window.location.href = 'Play_Game.html?table=' + tableId + '&player=' + playerName;
+        })
+        .catch(error => {
+            console.error('Error making move:', error);
+            document.getElementById('errorMessage').textContent = 'Error: ' + error.message;
+        });
 }
 </script>
 
