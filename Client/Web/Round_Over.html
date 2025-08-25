@@ -20,10 +20,10 @@
 </head>
 <body>
 
-    <h2>Here are the results of the last round:</h2>
+    <h2>Here are the results of the last round: <button onclick="window.location.href='Play_Game.html?table=' + tableId + '&player=' + playerName" style="margin: 10px;">Return to game</button></h2>
     
     <div id="tableContainer"></div>
-    <button onclick="window.location.href='Play_Game.html?table=' + tableId + '&player=' + playerName" style="margin: 10px;">Return to game</button>
+    
   <script>
         // Get URL parameters
         const urlParams = new URLSearchParams(window.location.search);
@@ -57,36 +57,105 @@
             let allTablesHtml = '';
 
 
-// List of  Players and their scores
+// List of Players and their scores
 if (data.pls) {
     allTablesHtml += '<table style="width: auto;">';
     const players = Array.isArray(data.pls) ? data.pls : [data.pls];
     const message = Array.isArray(data.msg) ? data.msg : [data.msg];
-    allTablesHtml += `<tr><th>${message.join('<br>')}</th></tr>`;
-    players.forEach(player => {
-        let handHtml = '<td>';
-        allTablesHtml += `<tr><th>${player.n}'s cards are</th></tr>`;
 
-        if (Array.isArray(player.ph)) {
-            player.ph.forEach(card => {
+    // Show message at top
+    allTablesHtml += `<tr><th colspan="3">${message.join('<br>')}</th></tr>`;
+
+    // Sort players by score in ascending order
+    const sortedPlayers = [...players].sort((a, b) => (a.s || 0) - (b.s || 0));
+
+    // Add leaderboard
+    allTablesHtml += '<tr><th colspan="3" style="text-align: center;">Leaderboard</th></tr>';
+    allTablesHtml += '<tr><th style="text-align: center;">Name</th><th style="text-align: center;">Current</th><th style="text-align: center;">Total</th></tr>';
+    sortedPlayers.forEach((player, index) => {
+        allTablesHtml += `<tr>
+            <td>${player.n}</td>
+            <td style="text-align: right">${player.rs || 0}</td>
+            <td style="text-align: right"><b>${player.s || 0}</b></td>
+        </tr>`;
+    });
+    allTablesHtml += '<table style="width: auto;">';
+    // Find current player and other players
+    const currentPlayer = players.find(p => p.n === playerName);
+    const otherPlayers = players.filter(p => p.n !== playerName);
+
+    // Show current player's info first
+    if (currentPlayer) {
+        allTablesHtml += `<tr><th colspan="2">${currentPlayer.n}'s cards are, ${currentPlayer.m1}</th></tr>`;
+        let handHtml = '<td colspan="2">';
+        if (Array.isArray(currentPlayer.ph)) {
+            currentPlayer.ph.forEach(card => {
                 const cardValue = typeof card === 'object' ? card.Cardvalue : card;
                 handHtml += `<img src="LlamaCard${cardValue}.png" alt="Card ${cardValue}" style="width:100px; margin:2px;">`;
             });
-        } else if (player.ph) {
-            handHtml += player.ph;
+        } else if (currentPlayer.ph) {
+            handHtml += currentPlayer.ph;
         } else {
             handHtml += 'No cards';
         }
         handHtml += '</td>';
         allTablesHtml += `<tr>${handHtml}</tr>`;
+       
+    }
+    allTablesHtml += '<tr><th colspan="2" style="text-align: center;">Other Players at the table</th></tr>';
+    // Show other players in two columns
+    for (let i = 0; i < otherPlayers.length; i += 2) {
+        const player1 = otherPlayers[i];
+        const player2 = otherPlayers[i + 1];
+
+        // Player names
+        allTablesHtml += '<tr>';
+        allTablesHtml += `<td>${player1.n}'s cards are, ${player1.m1}<br>${player1.m2}</td>`;
+        allTablesHtml += player2 ? `<td>${player2.n}'s cards are, ${player2.m1}<br>${player2.m2}</td>` : '<td></td>';
+        allTablesHtml += '</tr>';
+
+        // Player cards
+        allTablesHtml += '<tr>';
+        // First player cards
+        let hand1Html = '<td>';
+        if (Array.isArray(player1.ph)) {
+            player1.ph.forEach(card => {
+                const cardValue = typeof card === 'object' ? card.Cardvalue : card;
+                hand1Html += `<img src="LlamaCard${cardValue}.png" alt="Card ${cardValue}" style="width:75px; margin:2px;">`;
+            });
+        } else if (player1.ph) {
+            hand1Html += player1.ph;
+        } else {
+            hand1Html += 'No cards';
+        }
+        hand1Html += '</td>';
+        allTablesHtml += hand1Html;
+
+        // Second player cards (if exists)
+        if (player2) {
+            let hand2Html = '<td>';
+            if (Array.isArray(player2.ph)) {
+                player2.ph.forEach(card => {
+                    const cardValue = typeof card === 'object' ? card.Cardvalue : card;
+                    hand2Html += `<img src="LlamaCard${cardValue}.png" alt="Card ${cardValue}" style="width:75px; margin:2px;">`;
+                });
+            } else if (player2.ph) {
+                hand2Html += player2.ph;
+            } else {
+                hand2Html += 'No cards';
+            }
+            hand2Html += '</td>';
+            allTablesHtml += hand2Html;
+        } else {
+            allTablesHtml += '<td></td>';
+        }
+        allTablesHtml += '</tr>';
 
 
-        allTablesHtml += `<tr><th>${player.m1}</BR>${player.m2}</th></tr>`;
-        
-        allTablesHtml += `<tr></tr>`;
-    });
-    
+    }
+
     allTablesHtml += '</table>';
+
 }
 container.innerHTML = allTablesHtml || '<p>No data available</p>';
         }

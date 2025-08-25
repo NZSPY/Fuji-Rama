@@ -20,131 +20,214 @@
 </head>
 <body>
 
-    <h2>Game State View</h2>
-    <button onclick="window.location.href='index.html'" style="margin: 10px;">Return to Start</button>
+    <h2>Game State View<button onclick="window.location.href='index.html'" style="margin: 10px;">Return to Start</button></h2>
+    
 <div id="tableContainer">/div>
 
-  <script>
-        // Get URL parameters
-        const urlParams = new URLSearchParams(window.location.search);
-        const tableId = urlParams.get('table') || 'default'; // Use 'default' as fallback
-        const playerName = urlParams.get('player') || 'unknown'; // Use 'unknown' as fallback
-        function fetchGameState() {
-            fetch(`http://192.168.68.100:8080/state?table=${tableId}&player=${playerName}`)
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    displayTable(data);
-                })
-                .catch(error => {
-                    console.error('Error fetching data:', error);
-                    const container = document.getElementById('tableContainer');
-                    container.innerHTML = `<p style="color: red;">Error loading data: ${error.message}</p>`;
-                });
-        }
-
-        function displayTable(data) {
-            const container = document.getElementById('tableContainer');
-            if (!data || typeof data !== 'object') {
-                container.innerHTML = '<p style="color: red;">Invalid data received</p>';
-                return;
+<script>
+    // Get URL parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    const tableId = urlParams.get('table') || 'default'; // Use 'default' as fallback
+    const playerName = urlParams.get('player') || 'unknown'; // Use 'unknown' as fallback
+    function fetchGameState() {
+        fetch(`http://192.168.68.100:8080/state?table=${tableId}&player=${playerName}`)
+        .then(response => {
+            if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
             }
-            
-            let allTablesHtml = '';
+            return response.json();
+        })
+        .then(data => {
+            displayTable(data);
+        })
+        .catch(error => {
+            console.error('Error fetching data:', error);
+            const container = document.getElementById('tableContainer');
+            container.innerHTML = `<p style="color: red;">Error loading data: ${error.message}</p>`;
+        });
+    }
 
-            // Table 1: Table Cards
-      
-                const DrawDeck = Array.isArray(data.dd) ? data.dd.join(', ') : data.dd;
-                allTablesHtml += `<table style="width: auto;">`;
-                allTablesHtml += `<tr><th>Draw Deck (${DrawDeck})</th><th>Discard Pile</th></tr>`;
-                if (DrawDeck > 0) {
-                    allTablesHtml += `<tr><td><img src="LlamaCardBack.png" alt="Card Back" style="width:100px;"></td>`;
+    let discardTop = null;  // Global variable for top discard card
+    let discardNext = null;  // Global variable for top discard card
+
+    function displayTable(data) {
+        const container = document.getElementById('tableContainer');
+        if (!data || typeof data !== 'object') {
+        container.innerHTML = '<p style="color: red;">Invalid data received</p>';
+        return;
+        }
+        
+        // Initialize discard variables
+        const discardCard = Array.isArray(data.dp) ? data.dp : [data.dp];
+        const firstCard = discardCard[0];
+        const cardValue = typeof firstCard === 'object' ? firstCard.Cardvalue : firstCard;
+        discardTop = cardValue; // Update global variable with the top card
+        discardNext = cardValue + 1; // Update global variable with the next card
+        if (discardNext > 7) discardNext = 1; // Wrap around if needed
+
+
+        let allTablesHtml = '';
+
+        // Table 1 Combined for draw deck, player hand, and discard pile
+        if (data.ph) {
+        const playerName = Array.isArray(data.pn) ? data.pn.join(', ') : data.pn;
+        const blackCounters = Array.isArray(data.pbc) ? data.pbc.join(', ') : data.pbc;
+        const whiteCounters = Array.isArray(data.pwc) ? data.pwc.join(', ') : data.pwc;
+        const score = (blackCounters*10) + whiteCounters;
+        const DrawDeck = Array.isArray(data.dd) ? data.dd.join(', ') : data.dd;
+        const moves = Array.isArray(data.pvm) ? data.pvm.join(', ') : (data.pvm || 'n/a');
+
+        allTablesHtml += `<table style="width: auto;">`;
+        allTablesHtml += `<tr><th colspan="3">${playerName} you have ${blackCounters} Black and ${whiteCounters} White Counters:  Score: ${score}</th></tr>`;
+        
+        // Row for cards
+        allTablesHtml += '<tr>';
+        // Draw deck
+        allTablesHtml += `<td style="vertical-align: top; text-align: center;"><B>Draw Deck (${DrawDeck})</B><br>`;
+        if (DrawDeck > 0) {
+            if (moves.includes('D')) {
+            allTablesHtml += `<button onclick="moveDraw()" style="border: dotted; background: none; padding: 0; cursor: pointer;">
+                <img src="LlamaCardBack.png" alt="Card Back" style="width:100px;">
+            </button>`;
+            } else {
+            allTablesHtml += `<img src="LlamaCardBack.png" alt="Card Back" style="width:100px;">`;
+            }
+        } else {
+            allTablesHtml += `<img src="NoLlamaCards.png" alt="Card Back" style="width:100px;">`;
+        }
+        allTablesHtml += '</td>';
+
+        // Player's hand
+        allTablesHtml += '<td style="text-align: center;">Your Cards<br>';
+        const isPlayingMove = moves.includes('C') || moves.includes('N');
+        
+        if (Array.isArray(data.ph)) {
+            data.ph.forEach((card, index) => {
+            const cardValue = typeof card === 'object' ? card.Cardvalue : card;
+                if (isPlayingMove && (cardValue === discardTop || cardValue === discardNext)) {
+                    allTablesHtml += `<button onclick="playCard(${cardValue})" style="border: dotted; background: none; padding: 0; cursor: pointer;">
+                        <img src="LlamaCard${cardValue}.png" alt="Card ${cardValue}" style="width:100px; margin:2px;">
+                    </button>`;
                 } else {
-                    allTablesHtml += `<tr><td><img src="NoLlamaCards.png" alt="Card Back" style="width:100px;"></td>`;
+                    allTablesHtml += `<img src="LlamaCard${cardValue}.png" alt="Card ${cardValue}" style="width:100px; margin:2px;">`;
                 }
-               
-                        const discardCards = Array.isArray(data.dp) ? data.dp : [data.dp];
-                    discardCards.forEach(card => {
-                    const cardValue = typeof card === 'object' ? card.Cardvalue : card;
-                    allTablesHtml += `<td><img src="LlamaCard${cardValue}.png" alt="Card ${cardValue}" style="width:100px; margin:2px;"></td></tr>`;
-                });
-                const lastMovePlayed = Array.isArray(data.lmp)? data.lmp.join(', ') : data.lmp;
+            });
+        }
+        allTablesHtml += '</td>';
 
-                allTablesHtml += `<tr><td colspan=2>${lastMovePlayed}</td></tr>`;
-                allTablesHtml += '</table>';
-     
+        // Discard pile
+        allTablesHtml += '<td style="vertical-align: top; text-align: center;"><b>Discard Pile</b><br>';
+        const discardCards = Array.isArray(data.dp) ? data.dp : [data.dp];
+        discardCards.forEach(card => {
+            const cardValue = typeof card === 'object' ? card.Cardvalue : card;
+            if (moves.includes('F')) {
+                allTablesHtml += `<button onclick="moveFold()" style="border: dotted; background: none; padding: 0; cursor: pointer;">
+                    <img src="LlamaCard${cardValue}.png" alt="Card ${cardValue}" style="width:100px; margin:2px;">
+                </button>`;
+            } else {
+                allTablesHtml += `<img src="LlamaCard${cardValue}.png" alt="Card ${cardValue}" style="width:100px; margin:2px;">`;
+            }
+        });
+        allTablesHtml += '</td></tr>';
 
-
-            // Table 2: Player Hand and Valid Moves
-            if (data.ph) {
-                const playerName = Array.isArray(data.pn) ? data.pn.join(', ') : data.pn;
-                const blackCounters = Array.isArray(data.pbc) ? data.pbc.join(', ') : data.pbc;
-                const whiteCounters = Array.isArray(data.pwc) ? data.pwc.join(', ') : data.pwc;
-                const score = (blackCounters*10) + whiteCounters;
-                allTablesHtml += `<table style="width: auto;"><tr><th>${playerName} you have ${blackCounters} Black and ${whiteCounters} White Counters
-                    <br> Score: ${score}
-                    <br>and your current cards are </th></tr>`;
-                let handHtml = '<td colspan="2">';
-                if (Array.isArray(data.ph)) {
-                    data.ph.forEach(card => {
-                        const cardValue = typeof card === 'object' ? card.Cardvalue : card;
-                        handHtml += `<img src="LlamaCard${cardValue}.png" alt="Card ${cardValue}" style="width:100px; margin:2px;">`;
-                    });
-                } else {
-                    handHtml += data.ph || 'N/A';
-                }
-                handHtml += '</td>';
-                allTablesHtml += `<tr>${handHtml}</tr>`;
-                
-                // Add valid moves in a new row
-                allTablesHtml += '<tr><th  colspan="2">Valid Moves</th></tr>';
-                const moves = Array.isArray(data.pvm) ? data.pvm.join(', ') : (data.pvm || 'n/a');
-    allTablesHtml += `<tr><td>
-        ${data.pls.find(p => p.n === playerName)?.s === 2 
+        // Valid moves
+        allTablesHtml += `<tr><td colspan="2">
+            ${data.pls.find(p => p.n === playerName)?.s === 2 
             ? '<p>You have folded, Please wait for other players to finish</p>' 
             : data.pls.find(p => p.n === playerName)?.s === 0
             ? '<p>Please wait for other players have thier turn</p>'
             : data.pls.find(p => p.n === playerName)?.s === 1
             ? `${(moves.includes('C') || moves.includes('N') || moves.includes('D') || moves.includes('F'))
-                ? `${moves.includes('C') ? '<button onclick="moveCurrent()">Play Current</button>' : ''}
-                   ${moves.includes('N') ? '<button onclick="moveNext()">Play Next</button>' : ''}
-                   ${moves.includes('D') ? '<button onclick="moveDraw()">Draw Card</button>' : ''}
-                   ${moves.includes('F') ? '<button onclick="moveFold()">Fold</button>' : ''}`
-                : ''}</td><TD><BR><B>Time remaining:</B> <div id="timer" style="font-size: 24px; color: #333;">30</div>`
+            ? `${moves.includes('D') ? '<span style="color: green;">Click on the draw deck to draw a card</br></span>' : ''}
+               ${moves.includes('C') || moves.includes('N') ? '<span style="color: Blue;">Click on a valid card in your hand to play it</br></span>' : ''}
+               ${moves.includes('F') ? '<span style="color: red;">Click on the discard pile to fold</span>' : ''}`
+            : ''}</td><td><BR><B>Time remaining:</B> <div id="timer" style="font-size: 24px; color: #333;">60</div>(until auto fold)</td>`
             : '<p>The round is over</p>'
-        }
-    </td></tr>`;
-    allTablesHtml += '</table>';
-}
+            }
+        </td></tr>`;
+
+         // Last move played
+         const lastMovePlayed = Array.isArray(data.lmp)? data.lmp.join(', ') : data.lmp;
+        allTablesHtml += `<tr><td colspan="3">${lastMovePlayed}</td></tr>`;
+        allTablesHtml += '</table>';
+    }
 
 
-            // Table 3: List of other Players
+            // Table 2: List of other Players
             if (data.pls) {
                 allTablesHtml += '<table style="width: auto;">';
-                    const playerName = Array.isArray(data.pn) ? data.pn.join(', ') : data.pn;
-                    const players = Array.isArray(data.pls) ? data.pls : [data.pls];
-                players.forEach(player => {
-                    // Skip if player name matches the query parameter
-                    if (player.n === `${playerName}`) return;
-                    const score = (player.bc*10) + player.wc;
-                   const status =   player.s === 0 ? "Waiting" :
-                                    player.s === 1 ? "Playing" :
-                                    player.s === 2 ? "Folded" :
-                                    player.s === 3 ? "Won the round" : "UNKNOWN";
-                   allTablesHtml +=`<tr><th>${player.n} has ${player.bc} Black and ${player.wc} White Counters
-                    <br> Score: ${score}
-                    <br>and is  ${status}</th></tr>
-                    <tr><td>${'<img src="LlamaCardBack.png" alt="Card Back" style="width:100px;">'.repeat(player.nc)}</td></tr>`;
-                });
+                const playerName = Array.isArray(data.pn) ? data.pn.join(', ') : data.pn;
+                const players = Array.isArray(data.pls) ? data.pls.filter(p => p.n !== playerName) : [];
+                
+                allTablesHtml += '<tr><th colspan="2" style="text-align: center;">Other Players at the table</th></tr>';
+                
+                // Create rows with 2 players per row
+                for (let i = 0; i < Math.ceil(players.length / 2); i++) {
+                    allTablesHtml += '<tr>';
+                    
+                    // First column (even index)
+                    const player1 = players[i * 2];
+                    if (player1) {
+                        const score1 = (player1.bc * 10) + player1.wc;
+                        const status1 = player1.s === 0 ? "Waiting" :
+                                      player1.s === 1 ? "Playing" :
+                                      player1.s === 2 ? "Folded" :
+                                      player1.s === 3 ? "Won the round" : "UNKNOWN";
+                        allTablesHtml += `
+                            <td>
+                                <div>${player1.n} has ${player1.bc} Black and ${player1.wc} White Counters</div>
+                                <div>Score: ${score1} and is ${status1}</div>
+                                <div>${'<img src="LlamaCardBack.png" alt="Card Back" style="width:75px;">'.repeat(player1.nc)}</div>
+                            </td>`;
+                    }
+                    
+                    // Second column (odd index)
+                    const player2 = players[i * 2 + 1];
+                    if (player2) {
+                        const score2 = (player2.bc * 10) + player2.wc;
+                        const status2 = player2.s === 0 ? "Waiting" :
+                                      player2.s === 1 ? "Playing" :
+                                      player2.s === 2 ? "Folded" :
+                                      player2.s === 3 ? "Won the round" : "UNKNOWN";
+                        allTablesHtml += `
+                            <td>
+                                <div>${player2.n} has ${player2.bc} Black and ${player2.wc} White Counters</div>
+                                <div>Score: ${score2} and is ${status2}</div>
+                                <div>${'<img src="LlamaCardBack.png" alt="Card Back" style="width:75px;">'.repeat(player2.nc)}</div>
+                            </td>`;
+                    } else {
+                        allTablesHtml += '<td></td>';
+                    }
+                    
+                    allTablesHtml += '</tr>';
+                }
                 allTablesHtml += '</table>';
             }
             container.innerHTML = allTablesHtml || '<p>No data available</p>';
         }
         
+function playCard(cardclicked) {
+    const card = cardclicked;
+    
+    
+  
+    const lastMovePlayed = `Playing card: ${card} Discard top card: ${discardTop}`;
+    console.log(lastMovePlayed);  // For debugging
+    // We'll add the lastMovePlayed to the game state display in the displayTable function instead
+    
+    if (cardclicked === discardTop) {
+        moveCurrent();       
+    }
+
+    if (cardclicked === discardNext) {
+        moveNext();
+    }
+}
+
+
+
+
+
         function moveCurrent() {
             fetch('http://192.168.68.100:8080/move?table=' + tableId + '&player=' + playerName + "&VM=C")
             .then(response => {
@@ -209,12 +292,14 @@
             });
         }
 
+        
+
 
         // Fetch data when page loads
         fetchGameState();
 
    
-        let timeLeft = 30;
+        let timeLeft = 60;
         
         function updateTimer() {
             const timerElement = document.getElementById('timer');
@@ -223,7 +308,7 @@
                     timeLeft--;
                     timerElement.textContent = timeLeft;
                 } else {
-                    timeLeft = 30; // Reset timer
+                    timeLeft = 60; // Reset timer
                 }
             }
         }
@@ -244,7 +329,7 @@
             if (JSON.stringify(data) !== JSON.stringify(lastDataState)) {
                 displayTable(data);
                 lastDataState = data;
-                timeLeft = 30;
+                timeLeft = 60;
             // Check if round is over
             if (data.lmp && data.lmp.toString().substring(0, 4) === "(RE)") {
                 window.location.href = 'Round_Over.html?table=' + tableId + '&player=' + playerName;

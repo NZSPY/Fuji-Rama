@@ -227,7 +227,7 @@ func joinTable(c *gin.Context) {
 		}
 		tables[tableIndex].CurPlayers = gameStates[tableIndex].Table.CurPlayers // update the quick table view players count
 		tables[tableIndex].Status = gameStates[tableIndex].Table.Status         // update the quick table view status
-		gameStates[tableIndex].WaitingTimer = 30                                // Reset the waiting timer for the game state
+		gameStates[tableIndex].WaitingTimer = 60                                // Reset the waiting timer for the game state
 	}
 }
 
@@ -316,7 +316,9 @@ func dealCards(tableIndex int) {
 			gameStates[tableIndex].NumCards--                                                                   // Decrement the number of cards in the deck
 			player.NumCards++                                                                                   // Increment the number of cards in the player's hand
 		}
+		sortCards(tableIndex, i) // Sort the player's hand after dealing
 	}
+
 }
 
 // getGameState retrieves the game state for a specific player at a specific table
@@ -427,13 +429,13 @@ func getGameState(c *gin.Context) {
 
 	c.JSON(http.StatusOK, response)
 
-	if gameStates[tableIndex].WaitingTimer <= 10 && gameStates[tableIndex].Table.Status == "waiting" {
-		gameStates[tableIndex].WaitingTimer = 30 // Reset the waiting timer
+	if gameStates[tableIndex].WaitingTimer <= 50 && gameStates[tableIndex].Table.Status == "waiting" { // fix this later to be more dynamic
+		gameStates[tableIndex].WaitingTimer = 60 // Reset the waiting timer
 		fmt.Println("Waiting timer exceeded 20 seconds, starting new game")
 		c.Params = []gin.Param{{Key: "sup", Value: "1"}}
 		StartNewGame(c)
 	}
-	if gameStates[tableIndex].WaitingTimer <= 25 && gameStates[tableIndex].Table.Status == "playing" {
+	if gameStates[tableIndex].WaitingTimer <= 55 && gameStates[tableIndex].Table.Status == "playing" {
 		for i := 0; i < len(gameStates[tableIndex].Players); i++ {
 			if gameStates[tableIndex].Players[i].Status == STATUS_PLAYING && !gameStates[tableIndex].Players[i].Human {
 				move := aiMove(tableIndex, i)    // AI move function to determine the AI's move)
@@ -444,11 +446,11 @@ func getGameState(c *gin.Context) {
 	}
 
 	if gameStates[tableIndex].WaitingTimer <= 0 && gameStates[tableIndex].Table.Status == "playing" {
-		gameStates[tableIndex].WaitingTimer = 30 // Reset the waiting timer
+		gameStates[tableIndex].WaitingTimer = 60 // Reset the waiting timer
 		for i := 0; i < len(gameStates[tableIndex].Players); i++ {
 			if gameStates[tableIndex].Players[i].Status == STATUS_PLAYING {
-				doVaildMove(tableIndex, i, "F") // If the player has not made a move in 30 seconds, fold them
-				fmt.Println("Waiting timer exceeded 30 seconds, folding", gameStates[tableIndex].Players[i].Name)
+				doVaildMove(tableIndex, i, "F") // If the player has not made a move in 60 seconds, fold them
+				fmt.Println("Waiting timer exceeded 60 seconds, folding", gameStates[tableIndex].Players[i].Name)
 				break // Exit the loop after folding the first player who is still playing
 			}
 		}
@@ -565,7 +567,7 @@ func doVaildMoveURL(c *gin.Context) {
 
 // Perform the valid move for the player at the specified table
 func doVaildMove(tableIndex int, playerIndex int, move string) {
-	gameStates[tableIndex].WaitingTimer = 30 // Reset the waiting timer
+	gameStates[tableIndex].WaitingTimer = 60 // Reset the waiting timer
 	switch move {
 	case "C", "c": // Current
 		gameStates[tableIndex].LastMovePlayed = gameStates[tableIndex].Players[playerIndex].Name + " played a " + gameStates[tableIndex].Discard.Cardname + " onto the discard pile"
@@ -644,7 +646,8 @@ func addCardtohand(tableIndex int, playerIndex int) {
 
 	gameStates[tableIndex].Players[playerIndex].Hand = append(gameStates[tableIndex].Players[playerIndex].Hand, gameStates[tableIndex].Maindeck[gameStates[tableIndex].NumCards]) // draw the last card from the deck
 	gameStates[tableIndex].NumCards--                                                                                                                                             // Decrement the number of cards in the deck
-	gameStates[tableIndex].Players[playerIndex].NumCards++                                                                                                                        // Increment the number of cards in hand
+	gameStates[tableIndex].Players[playerIndex].NumCards++
+	sortCards(tableIndex, playerIndex)
 }
 
 // aiMove simulates an player's just dumb move by returning the first valid move from the AI player's valid moves.
@@ -741,27 +744,7 @@ func EndofRoundScore(tableIndex int) {
 	}
 	gameStates[tableIndex].LastMovePlayed = "(RE) Please view the results"
 	gameStates[tableIndex].RoundOver = true // Set the round over flag to true to prevent multiple score calculations
-	// Check if any player has lost the game by reaching 40 points
-	gameover := false
-	for _, player := range gameStates[tableIndex].Players {
-		if player.Score >= 40 {
-			fmt.Println("The game is over: ", player.Name, "is busted ", player.Score)
-			gameover = true
-			fmt.Println("-------------End Game totals  ------------------")
-			gameStates[tableIndex].LastMovePlayed = "Game over,please start a new game"
-			break
-		}
-	}
-	if !gameover {
-		fmt.Println("-------------End of round totals  ------------------")
-	}
 
-	/*
-		if gameover {
-			gameStates[tableIndex].Table.Status = "gameover" // Set the table status to game over
-			gameStates[tableIndex] = GameState{Players: Players{}}
-		}
-	*/
 }
 
 func getResults(c *gin.Context) {
@@ -780,6 +763,7 @@ func getResults(c *gin.Context) {
 		Message1   string `json:"m1"`
 		Message2   string `json:"m2"`
 		RoundScore int    `json:"rs"`
+		Score      int    `json:"s"`
 	}, len(gameStates[tableIndex].Players))
 
 	for i, player := range gameStates[tableIndex].Players {
@@ -789,12 +773,14 @@ func getResults(c *gin.Context) {
 			Message1   string `json:"m1"`
 			Message2   string `json:"m2"`
 			RoundScore int    `json:"rs"`
+			Score      int    `json:"s"`
 		}{
 			PlayerName: player.Name,
 			PlayerHand: player.Hand,
 			Message1:   player.Message1,
 			Message2:   player.Message2,
 			RoundScore: player.RoundScore,
+			Score:      player.Score,
 		}
 	}
 	// Sort by score, this will sort the players by their score in ascending order
@@ -802,6 +788,19 @@ func getResults(c *gin.Context) {
 		return playerStates[i].RoundScore < playerStates[j].RoundScore
 	})
 	fmt.Println("Results for table", tables[tableIndex].Table)
+
+	// Check if any player has lost the game by reaching 40 points
+	gameover := false
+	for _, player := range gameStates[tableIndex].Players {
+		if player.Score >= 40 {
+			fmt.Println("The game is over: ", player.Name, "is busted ", player.Score)
+			gameover = true
+			fmt.Println("-------------End Game totals  ------------------")
+			gameStates[tableIndex].LastMovePlayed = "Game over,please start a new game"
+			break
+		}
+	}
+
 	// Create simplified game state with player scores
 	results := struct {
 		Message string      `json:"msg"`
@@ -813,7 +812,26 @@ func getResults(c *gin.Context) {
 
 	c.JSON(http.StatusOK, results)
 
-	resetTable(tableIndex) // Reset the game state for the next round
+	if !gameover {
+		fmt.Println("------------- Resting table  ------------------")
+		resetTable(tableIndex) // Reset the game state for the next round
+	} else {
+		fmt.Println("-------------Game Over Man !!  ------------------")
+		// Reset the entire game state for the table
+		tables[tableIndex].CurPlayers = 0
+		tables[tableIndex].Status = "empty"
+
+		gameStates[tableIndex] = GameState{
+			Table:          tables[tableIndex],
+			Maindeck:       Deck{},
+			NumCards:       0,
+			Discard:        Card{},
+			Players:        Players{},
+			LastMovePlayed: "Waiting for players to join",
+		}
+		SetupTable(tableIndex) // Initialize each table with a new deck and shuffle it
+
+	}
 
 }
 
@@ -823,7 +841,7 @@ func resetTable(tableIndex int) {
 	shuffleDeck(gameStates[tableIndex].Maindeck, tableIndex)
 	gameStates[tableIndex].LastMovePlayed = "New Round, waiting for players to return to the table" // Reset the last move played message
 	gameStates[tableIndex].RoundOver = false                                                        // Reset the round over flag for the next
-	gameStates[tableIndex].WaitingTimer = 30                                                        // Reset the waiting timer for the gamestate
+	gameStates[tableIndex].WaitingTimer = 60                                                        // Reset the waiting timer for the gamestate
 	setPlayorOrder(tableIndex)                                                                      // Set the play order for each player based on their index in the Players slice
 	// Reset the players' status and hands for the next round
 	for i := 0; i < len(gameStates[tableIndex].Players); i++ {
@@ -843,4 +861,10 @@ func setPlayorOrder(tableIndex int) {
 		return gameStates[tableIndex].Players[i].Playorder < gameStates[tableIndex].Players[j].Playorder
 	})
 
+}
+
+func sortCards(tableIndex int, playerIndex int) {
+	sort.SliceStable(gameStates[tableIndex].Players[playerIndex].Hand[:], func(i, j int) bool {
+		return gameStates[tableIndex].Players[playerIndex].Hand[i].Cardvalue < gameStates[tableIndex].Players[playerIndex].Hand[j].Cardvalue
+	})
 }

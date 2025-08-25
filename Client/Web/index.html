@@ -15,21 +15,118 @@
 <table>
     <thead>
         <tr>
-            <!-- Headers will be populated here by JavaScript -->
+            <th colspan="4">Player name: <input type="text" id="playerName" placeholder="Enter your name"> then select a table to join from the list below</th>
         </tr>
     </thead>
+        <tr>
+            <!-- Headers will be populated here by JavaScript -->
+        </tr>
+  
     <tbody id="dataTableBody">
         <!-- Data rows will be populated here by JavaScript -->
     </tbody>
+    <tfoot>
+        <!-- Footer will be populated here by JavaScript -->    
+    </tfoot>
 </table>
-<script src="script.js"></script>
+
+
 <P></P>
 
-Table to join: <input type="text" id="tableID" placeholder="Enter table id (t)">
-player name: <input type="text" id="playerName" placeholder="Enter your name">
-<button id="joinTableButton" onclick="openTableAndRefresh()">Join Table</button>
+<input type="hidden" id="tableID">
+
+
 <div id="errorMessage" style="color: red;"></div>
+
+
+
+</body>
+</html>
+
 <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const tableBody = document.getElementById('dataTableBody');
+        const apiUrl = 'http://192.168.68.100:8080/tables';
+    
+        async function fetchDataAndPopulateTable() {
+            try {
+                const response = await fetch(apiUrl);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+    
+                if (data.length > 0) {
+                    // Populate table headers with custom labels
+                    const headerRow = tableBody.previousElementSibling.querySelector('tr');
+                    const headerLabels = {
+                        'n': 'Table Name',
+                        'p': 'Current Players',
+                        'm': 'Max Players',
+                        's': 'Status'
+                    };
+                    Object.keys(data[0]).slice(1).forEach(key => {
+                        const th = document.createElement('th');
+                        th.textContent = headerLabels[key] || key;
+                        headerRow.appendChild(th);
+                    });
+    
+                    // Populate table rows with click functionality
+                    data.forEach(item => {
+                        const row = document.createElement('tr');
+                        row.style.cursor = 'pointer';
+                        row.addEventListener('click', () => {
+                            document.getElementById('tableID').value = item.t;
+                            document.getElementById('tableID').scrollIntoView({ behavior: 'smooth' });
+                            updateJoinButton(item.n);
+                        });
+                        
+                        // Skip first value when creating cells
+                        Object.values(item).slice(1).forEach(value => {
+                            const td = document.createElement('td');
+                            td.textContent = value;
+                            row.appendChild(td);
+                        });
+                        
+                        row.addEventListener('mouseover', () => {
+                            row.style.backgroundColor = '#f0f0f0';
+                        });
+                        row.addEventListener('mouseout', () => {
+                            row.style.backgroundColor = '';
+                        });
+                        
+                        tableBody.appendChild(row);
+                    });
+
+                    // Add join button to footer
+                    const tfoot = document.querySelector('tfoot');
+                    const footerRow = document.createElement('tr');
+                    const footerCell = document.createElement('th');
+                    footerCell.colSpan = 4;
+                    footerCell.innerHTML = `
+                        <div id="joinInfo" style="display: none">
+                            Join as <span id="playerNameDisplay"></span> to table: <span id="selectedTable"></span>
+                            <button onclick="openTableAndRefresh()">Join Table</button>
+                        </div>`;
+                    footerRow.appendChild(footerCell);
+                    tfoot.appendChild(footerRow);
+                }
+            } catch (error) {
+                console.error('Error fetching or processing data:', error);
+            }
+        }
+
+        function updateJoinButton(tableName) {
+            const playerName = document.getElementById('playerName').value;
+            const joinInfo = document.getElementById('joinInfo');
+            document.getElementById('playerNameDisplay').textContent = playerName;
+            document.getElementById('selectedTable').textContent = tableName;
+            joinInfo.style.display = playerName ? 'block' : 'none';
+        }
+        
+        fetchDataAndPopulateTable();
+    });
+
 function openTableAndRefresh() {
     var tableId = document.getElementById('tableID').value;
     var playerName = document.getElementById('playerName').value;
@@ -51,7 +148,4 @@ function openTableAndRefresh() {
         });
 }
 </script>
-
-
-</body>
-</html>
+    
