@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -19,9 +20,9 @@ type GameState struct {
 	Players        Players
 	Maindeck       Deck
 	LastMovePlayed string // Last move made by the active player (e.g., "play", "fold", "draw")
-	WaitingTimer   int    // Timer for waiting for players to make a move
 	EndedLast      int    // The index of the player who ended the last round
 	RoundOver      bool   // Indicates if the round is over
+	startTime      time.Time
 }
 
 var gameStates = make([]GameState, 7)
@@ -85,7 +86,7 @@ type Players []Player
 func main() {
 	// Initialize the tables and game states
 	for i := 0; i < len(gameStates); i++ {
-		gameStates[i] = GameState{Table: tables[i], Maindeck: Deck{}, NumCards: 0, Discard: Card{}, Players: Players{}, LastMovePlayed: "Waiting for players to join"}
+		gameStates[i] = GameState{Table: tables[i], Maindeck: Deck{}, NumCards: 0, Discard: Card{}, Players: Players{}, LastMovePlayed: "Waiting for players to join", startTime: time.Now(), EndedLast: -1, RoundOver: false}
 		SetupTable(i) // Initialize each table with a new deck and shuffle it
 	}
 
@@ -95,9 +96,9 @@ func main() {
 	router.GET("/devview", viewGameState) // View the game state for a specific table (IE Cheats view)
 	router.GET("/state", getGameState)    // Get the game state for a specific table and player
 	router.GET("/join", joinTable)        // Join a table
-	router.GET("/start", StartNewGame)    // start a new game on a table (this also happens when the table is filled with players), if the table is not fill it will fill the emplty slots with AI Players
+	router.GET("/start", StartNewGame)    // start a new game on a table (this also happens automaticly when the table is filled with players), if the table is not filled  it will fill the emplty slots with AI Players
 	router.GET("/move", doVaildMoveURL)   // Make a move on the table (play, fold, draw)
-	router.GET("/results", getResults)    // Make a move on the table (play, fold, draw)
+	router.GET("/results", getResults)    // View the results of the last round played
 
 	// Set up router and start server
 	router.SetTrustedProxies(nil) // Disable trusted proxies because Gin told me to do it.. (neeed to investigate this further)
@@ -121,6 +122,10 @@ func viewGameState(c *gin.Context) {
 	} else {
 		c.IndentedJSON(http.StatusOK, gameStates) // Return all game states if no specific table is requested
 	}
+
+	elapsed := time.Since(gameStates[tableIndex].startTime)
+	fmt.Println("Elapsed time:", elapsed)
+
 }
 
 // NewDeck creates a new Llama 56-card deck.
@@ -227,7 +232,7 @@ func joinTable(c *gin.Context) {
 		}
 		tables[tableIndex].CurPlayers = gameStates[tableIndex].Table.CurPlayers // update the quick table view players count
 		tables[tableIndex].Status = gameStates[tableIndex].Table.Status         // update the quick table view status
-		gameStates[tableIndex].WaitingTimer = 60                                // Reset the waiting timer for the game state
+		gameStates[tableIndex].startTime = time.Now()                           // Reset the waiting timer for the game state
 	}
 }
 
@@ -342,6 +347,8 @@ func getGameState(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, "Player not found at this table")
 		return
 	}
+	elapsed := time.Since(gameStates[tableIndex].startTime)
+	// fmt.Println("Elapsed time:", elapsed)
 
 	// Create player state info for all players at table
 	playerStates := make([]struct {
@@ -379,9 +386,6 @@ func getGameState(c *gin.Context) {
 		index++
 
 	}
-	if gameStates[tableIndex].Table.CurPlayers > 0 { // If there are players at the table, decrement the waiting timer
-		gameStates[tableIndex].WaitingTimer-- // decrement the waiting timer for the game state
-	}
 
 	for i, player := range gameStates[tableIndex].Players {
 		playerStates[i] = struct {
@@ -411,13 +415,11 @@ func getGameState(c *gin.Context) {
 		PlayerValidMove string      `json:"pvm"`
 		PlayerHand      Deck        `json:"ph"`
 		Players         interface{} `json:"pls"`
-		//WaitingTimer    int         `json:"wt"` // Timer for waiting for players to make a move
 	}{
 
-		DrawDeck:       gameStates[tableIndex].NumCards,
-		DiscardPile:    gameStates[tableIndex].Discard,
-		LastMovePlayed: gameStates[tableIndex].LastMovePlayed,
-		//WaitingTimer:    gameStates[tableIndex].WaitingTimer,
+		DrawDeck:        gameStates[tableIndex].NumCards,
+		DiscardPile:     gameStates[tableIndex].Discard,
+		LastMovePlayed:  gameStates[tableIndex].LastMovePlayed,
 		PlayerName:      reqestingPlayerName,
 		PlayerStatus:    reqestingPlayerStatus,
 		PlayerWC:        reqestingPlayerWC,
@@ -429,13 +431,14 @@ func getGameState(c *gin.Context) {
 
 	c.JSON(http.StatusOK, response)
 
-	if gameStates[tableIndex].WaitingTimer <= 50 && gameStates[tableIndex].Table.Status == "waiting" { // fix this later to be more dynamic
-		gameStates[tableIndex].WaitingTimer = 60 // Reset the waiting timer
-		fmt.Println("Waiting timer exceeded 20 seconds, starting new game")
+	if elapsed >= 60*time.Second && gameStates[tableIndex].Table.Status == "waiting" { // fix this later to be more dynamic
+		gameStates[tableIndex].startTime = time.Now() // Reset the waiting timer
+		elapsed = time.Since(gameStates[tableIndex].startTime)
+		fmt.Println("Waiting timer exceeded, starting new game")
 		c.Params = []gin.Param{{Key: "sup", Value: "1"}}
 		StartNewGame(c)
 	}
-	if gameStates[tableIndex].WaitingTimer <= 55 && gameStates[tableIndex].Table.Status == "playing" {
+	if elapsed >= 4*time.Second && gameStates[tableIndex].Table.Status == "playing" {
 		for i := 0; i < len(gameStates[tableIndex].Players); i++ {
 			if gameStates[tableIndex].Players[i].Status == STATUS_PLAYING && !gameStates[tableIndex].Players[i].Human {
 				move := aiMove(tableIndex, i)    // AI move function to determine the AI's move)
@@ -445,8 +448,8 @@ func getGameState(c *gin.Context) {
 		}
 	}
 
-	if gameStates[tableIndex].WaitingTimer <= 0 && gameStates[tableIndex].Table.Status == "playing" {
-		gameStates[tableIndex].WaitingTimer = 60 // Reset the waiting timer
+	if elapsed >= 60*time.Second && gameStates[tableIndex].Table.Status == "playing" {
+		gameStates[tableIndex].startTime = time.Now() // Reset the waiting timer
 		for i := 0; i < len(gameStates[tableIndex].Players); i++ {
 			if gameStates[tableIndex].Players[i].Status == STATUS_PLAYING {
 				doVaildMove(tableIndex, i, "F") // If the player has not made a move in 60 seconds, fold them
@@ -567,7 +570,7 @@ func doVaildMoveURL(c *gin.Context) {
 
 // Perform the valid move for the player at the specified table
 func doVaildMove(tableIndex int, playerIndex int, move string) {
-	gameStates[tableIndex].WaitingTimer = 60 // Reset the waiting timer
+	gameStates[tableIndex].startTime = time.Now() // Reset the waiting timer
 	switch move {
 	case "C", "c": // Current
 		gameStates[tableIndex].LastMovePlayed = gameStates[tableIndex].Players[playerIndex].Name + " played a " + gameStates[tableIndex].Discard.Cardname + " onto the discard pile"
@@ -756,6 +759,13 @@ func getResults(c *gin.Context) {
 
 		return
 	}
+
+	// Check the player is at this table
+	if gameStates[tableIndex].Table.CurPlayers == 0 {
+		c.JSON(http.StatusConflict, "Sorry: table "+tables[tableIndex].Table+" has no human players, please join the table before starting a game")
+		return
+	}
+
 	// Create player state info for all players at table
 	playerStates := make([]struct {
 		PlayerName string `json:"n"`
@@ -841,7 +851,7 @@ func resetTable(tableIndex int) {
 	shuffleDeck(gameStates[tableIndex].Maindeck, tableIndex)
 	gameStates[tableIndex].LastMovePlayed = "New Round, waiting for players to return to the table" // Reset the last move played message
 	gameStates[tableIndex].RoundOver = false                                                        // Reset the round over flag for the next
-	gameStates[tableIndex].WaitingTimer = 60                                                        // Reset the waiting timer for the gamestate
+	gameStates[tableIndex].startTime = time.Now()                                                   // Reset the waiting timer for the gamestate
 	setPlayorOrder(tableIndex)                                                                      // Set the play order for each player based on their index in the Players slice
 	// Reset the players' status and hands for the next round
 	for i := 0; i < len(gameStates[tableIndex].Players); i++ {

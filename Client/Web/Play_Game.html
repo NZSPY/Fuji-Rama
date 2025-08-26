@@ -22,7 +22,7 @@
 
     <h2>Game State View<button onclick="window.location.href='index.html'" style="margin: 10px;">Return to Start</button></h2>
     
-<div id="tableContainer">/div>
+<div id="tableContainer"></div>
 
 <script>
     // Get URL parameters
@@ -57,6 +57,7 @@
         return;
         }
         
+
         // Initialize discard variables
         const discardCard = Array.isArray(data.dp) ? data.dp : [data.dp];
         const firstCard = discardCard[0];
@@ -148,7 +149,10 @@
 
          // Last move played
          const lastMovePlayed = Array.isArray(data.lmp)? data.lmp.join(', ') : data.lmp;
-        allTablesHtml += `<tr><td colspan="3">${lastMovePlayed}</td></tr>`;
+        allTablesHtml += `<tr><td colspan="3">
+            ${lastMovePlayed}
+            ${lastMovePlayed === "Waiting for players to join" ? `<button onclick="startGame()" style="margin: 10px;">Start Game</button>` : ''}
+        </td></tr>`;
         allTablesHtml += '</table>';
     }
 
@@ -292,7 +296,21 @@ function playCard(cardclicked) {
             });
         }
 
-        
+        function startGame() {
+            fetch('http://192.168.68.100:8080/start?table=' + tableId)
+            .then(response => {
+                if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(() => {
+                fetchGameState(); // Refresh the game state
+            })
+            .catch(error => {
+                console.error('Error making move:', error);
+            });
+        }
 
 
         // Fetch data when page loads
