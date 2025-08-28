@@ -136,7 +136,7 @@
             ${data.pls.find(p => p.n === playerName)?.s === 2 
             ? '<p>You have folded, Please wait for other players to finish</p>' 
             : data.pls.find(p => p.n === playerName)?.s === 0
-            ? '<p>Please wait for other players have thier turn</p>'
+            ? '<p>Please wait for other players have their turn</p>'
             : data.pls.find(p => p.n === playerName)?.s === 1
             ? `${(moves.includes('C') || moves.includes('N') || moves.includes('D') || moves.includes('F'))
             ? `${moves.includes('D') ? '<span style="color: green;">Click on the draw deck to draw a card</br></span>' : ''}
