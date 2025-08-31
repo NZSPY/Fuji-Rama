@@ -28,7 +28,7 @@
     // Get URL parameters
     const urlParams = new URLSearchParams(window.location.search);
     const tableId = urlParams.get('table') || 'default'; // Use 'default' as fallback
-    const playerName = urlParams.get('player') || 'unknown'; // Use 'unknown' as fallback
+    let playerName = urlParams.get('player') || 'unknown'; // Use 'unknown' as fallback
     function fetchGameState() {
         fetch(`http://192.168.68.100:8080/state?table=${tableId}&player=${playerName}`)
         .then(response => {
@@ -61,7 +61,7 @@
         // Initialize discard variables
         const discardCard = Array.isArray(data.dp) ? data.dp : [data.dp];
         const firstCard = discardCard[0];
-        const cardValue = typeof firstCard === 'object' ? firstCard.Cardvalue : firstCard;
+        const cardValue = typeof firstCard === 'object' ? firstCard.cv : firstCard;
         discardTop = cardValue; // Update global variable with the top card
         discardNext = cardValue + 1; // Update global variable with the next card
         if (discardNext > 7) discardNext = 1; // Wrap around if needed
@@ -70,13 +70,14 @@
         let allTablesHtml = '';
 
         // Table 1 Combined for draw deck, player hand, and discard pile
-        if (data.ph) {
-        const playerName = Array.isArray(data.pn) ? data.pn.join(', ') : data.pn;
-        const blackCounters = Array.isArray(data.pbc) ? data.pbc.join(', ') : data.pbc;
-        const whiteCounters = Array.isArray(data.pwc) ? data.pwc.join(', ') : data.pwc;
+       
+        const currentPlayer = data.pls.find(p => p.n === playerName);
+        const blackCounters = currentPlayer ? currentPlayer.bc : 0;
+        const whiteCounters = currentPlayer ? currentPlayer.wc : 0;
+        const moves = currentPlayer ? currentPlayer.pvm : [];
         const score = (blackCounters*10) + whiteCounters;
         const DrawDeck = Array.isArray(data.dd) ? data.dd.join(', ') : data.dd;
-        const moves = Array.isArray(data.pvm) ? data.pvm.join(', ') : (data.pvm || 'n/a');
+        
 
         allTablesHtml += `<table style="width: auto;">`;
         allTablesHtml += `<tr><th colspan="3">${playerName} you have ${blackCounters} Black and ${whiteCounters} White Counters:  Score: ${score}</th></tr>`;
@@ -86,7 +87,7 @@
         // Draw deck
         allTablesHtml += `<td style="vertical-align: top; text-align: center;"><B>Draw Deck (${DrawDeck})</B><br>`;
         if (DrawDeck > 0) {
-            if (moves.includes('D')) {
+            if (moves.includes('d')) {
             allTablesHtml += `<button onclick="moveDraw()" style="border: dotted; background: none; padding: 0; cursor: pointer;">
                 <img src="LlamaCardBack.png" alt="Card Back" style="width:100px;">
             </button>`;
@@ -100,12 +101,11 @@
 
         // Player's hand
         allTablesHtml += '<td style="text-align: center;">Your Cards<br>';
-        const isPlayingMove = moves.includes('C') || moves.includes('N');
-        
-        if (Array.isArray(data.ph)) {
-            data.ph.forEach((card, index) => {
-            const cardValue = typeof card === 'object' ? card.Cardvalue : card;
-                if (isPlayingMove && (cardValue === discardTop || cardValue === discardNext)) {
+        const isPlayingMove = moves.includes('c') || moves.includes('n');
+        const playerHand = currentPlayer ? currentPlayer.ph : '';
+        if (playerHand) {
+            playerHand.split('').forEach(cardValue => {
+                if (isPlayingMove && (Number(cardValue) === Number(discardTop) || Number(cardValue) === Number(discardNext))) {
                     allTablesHtml += `<button onclick="playCard(${cardValue})" style="border: dotted; background: none; padding: 0; cursor: pointer;">
                         <img src="LlamaCard${cardValue}.png" alt="Card ${cardValue}" style="width:100px; margin:2px;">
                     </button>`;
@@ -120,8 +120,8 @@
         allTablesHtml += '<td style="vertical-align: top; text-align: center;"><b>Discard Pile</b><br>';
         const discardCards = Array.isArray(data.dp) ? data.dp : [data.dp];
         discardCards.forEach(card => {
-            const cardValue = typeof card === 'object' ? card.Cardvalue : card;
-            if (moves.includes('F')) {
+            const cardValue = typeof card === 'object' ? card.cv : card;
+            if (moves.includes('f')) {
                 allTablesHtml += `<button onclick="moveFold()" style="border: dotted; background: none; padding: 0; cursor: pointer;">
                     <img src="LlamaCard${cardValue}.png" alt="Card ${cardValue}" style="width:100px; margin:2px;">
                 </button>`;
@@ -138,10 +138,10 @@
             : data.pls.find(p => p.n === playerName)?.s === 0
             ? '<p>Please wait for other players have their turn</p>'
             : data.pls.find(p => p.n === playerName)?.s === 1
-            ? `${(moves.includes('C') || moves.includes('N') || moves.includes('D') || moves.includes('F'))
-            ? `${moves.includes('D') ? '<span style="color: green;">Click on the draw deck to draw a card</br></span>' : ''}
-               ${moves.includes('C') || moves.includes('N') ? '<span style="color: Blue;">Click on a valid card in your hand to play it</br></span>' : ''}
-               ${moves.includes('F') ? '<span style="color: red;">Click on the discard pile to fold</span>' : ''}`
+            ? `${(moves.includes('c') || moves.includes('n') || moves.includes('d') || moves.includes('f'))
+            ? `${moves.includes('d') ? '<span style="color: green;">Click on the draw deck to draw a card</br></span>' : ''}
+               ${moves.includes('c') || moves.includes('n') ? '<span style="color: Blue;">Click on a valid card in your hand to play it</br></span>' : ''}
+               ${moves.includes('d') ? '<span style="color: red;">Click on the discard pile to fold</span>' : ''}`
             : ''}</td><td><BR><B>Time remaining:</B> <div id="timer" style="font-size: 24px; color: #333;">60</div>(until auto fold)</td>`
             : '<p>The round is over</p>'
             }
@@ -154,13 +154,13 @@
             ${lastMovePlayed === "Waiting for players to join" ? `<button onclick="startGame()" style="margin: 10px;">Start Game</button>` : ''}
         </td></tr>`;
         allTablesHtml += '</table>';
-    }
+  //  }
 
 
             // Table 2: List of other Players
             if (data.pls) {
                 allTablesHtml += '<table style="width: auto;">';
-                const playerName = Array.isArray(data.pn) ? data.pn.join(', ') : data.pn;
+                // const playerName = Array.isArray(data.pn) ? data.pn.join(', ') : data.pn;
                 const players = Array.isArray(data.pls) ? data.pls.filter(p => p.n !== playerName) : [];
                 
                 allTablesHtml += '<tr><th colspan="2" style="text-align: center;">Other Players at the table</th></tr>';
@@ -216,8 +216,6 @@ function playCard(cardclicked) {
     
   
     const lastMovePlayed = `Playing card: ${card} Discard top card: ${discardTop}`;
-    console.log(lastMovePlayed);  // For debugging
-    // We'll add the lastMovePlayed to the game state display in the displayTable function instead
     
     if (cardclicked === discardTop) {
         moveCurrent();       

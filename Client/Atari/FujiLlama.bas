@@ -17,7 +17,7 @@ dim responseBuffer(1023) BYTE
 JSON_MODE=1
 URL$=""
 BaseURL$="N:HTTP://192.168.68.100:8080"
-QUERY$=""
+QUERY$=""$9B
 JSON$="/tables"
 dummy$=""
 ' Initialize strings - this reserves their space in memory so NInput can write to them
@@ -29,22 +29,67 @@ for i=0 to 6
  TableMaxPlayers$(i)=""
  TableStatus$(i)=""
 next i
-
 ok=0
+' Player and table selection variables
+_TN=0
+_name$=""
+
+' Game state variables
+Dim PlayerName$(6),PlayerStatus(6),PlayerHandCount(6),PlayerWhiteCounters(6),PlayerBlackCounters(6),PlayerScore(6),PlayerHand$(6),PlayerValidMoves$(6)
+Drawdeck=0
+DiscardTop=0
+LastMovePlayed$=""
+for i=0 to 6
+ playerName$(i)=""
+ PlayerStatus(i)=0
+ PlayerHandCount(i)=0
+ PlayerWhiteCounters(i)=0
+ PlayerBlackCounters(i)=0
+ PlayerScore(i)=0
+ PlayerHand$(i)=""
+ PlayerValidMoves$(i)=""
+next i
+
+' Error variable
+_ERR=0    
+' Index variable for reading FujiNet JSON data
+INDEX=0
+' Variables for NInput helper code
+__NI_unit=0
+__NI_index=0
+__NI_bufferEnd=0
+__NI_indexStop=0
+__NI_resultLen=0
+
+
+
+' --------- Main program -----------------------------
+' Loop until the player has successfully joined a table
+
 do 
   ' Draw the welcome screen and display the tables available to join
   @welcome
 
   ' Check if the player has joined a table, if not then exit
-  @checkJoined
+  @checkErrors
 
   ' If the player has joined a table, then exit the loop
   if ok=1 then exit
+  GET K
 loop
+  
+  ? "You have joined table "
+ ? TableName$(_TN-1)
+  ? "as player ";_name$
 
+REPEAT
+ @readGameState
+ GET K  
+UNTIL K=27
 
 
 ' all done for now exit the program
+
 NCLOSE UNIT ' Close encase it's still open
 ? "          Coming soon !!" 
 ? "  - rest of game not yet implemented"
@@ -52,6 +97,10 @@ NCLOSE UNIT ' Close encase it's still open
 GET K
 ' Exit the program
 END
+
+
+
+
 
 
 
@@ -112,22 +161,7 @@ input " Enter your name ?";_name$
 input " Enter the table number to join it ?";_TN
 ? " **************************************"
 
-_T$=""
-if _TN=1
-_T$="ai1"
-elif _TN=2
-_T$="ai2"
-elif _TN=3
-_T$="ai3"
-elif _TN=4
-_T$="ai4"
-elif _TN=5
-_T$="ai5"
-elif _TN=6
-_T$="river"
-elif _TN=7
-_T$="Cave"
-Endif
+
 
 
 JSON$="/join?table="
@@ -148,11 +182,10 @@ JSON$=+_name$
 endproc
 
 
-
-Proc checkJoined
-' Check if the player has joined a table, if not then exit
+' Check data returned from FujiNet to see if it was successful or not
+' and display appropriate message
+Proc checkErrors
 ok = 1
-
 if len(dummy$) > 0 then
 _ERR=VAL(dummy$[5,1])
   if _ERR=1 
@@ -179,14 +212,99 @@ _ERR=VAL(dummy$[5,1])
     ok = 0
     ? "Sorry: ";_name$;" table ";TableName$(_TN-1);
     ? " is full, please try a different table"
+  elif _ERR=6 
+    ok = 0
+    ? "Must specify both table and player name"
+ elif _ERR=7 
+    ok = 0
+    ? "Player not found at this table"
 else
-  ? "You have joined table "
-  ? TableName$(_TN-1)
-  ? "as player ";_name$
   ok = 1
 endif
 
 endproc
+
+
+' Read the game state from the FujiNet API
+proc readGameState
+? "getting game state from FujiNet"
+JSON$="/state?table="
+JSON$=+TableID$(_TN-1) 
+JSON$=+"&player="
+JSON$=+_name$
+' JSON$="/state?table=ai1&player=SIMON"
+@CallFujiNet ' Call the FujiNet API to join the table
+@NInputInit UNIT, &responseBuffer ' Initialize reading the api response
+@NInput &dummy$ ' Read the response from the FujiNet API
+@checkErrors
+if ok <>1 then Exit
+@NInput &dummy$
+Drawdeck=VAL(dummy$)
+key$="" : value$=""
+do ' Loop reading key/value pairs until we reach the Start of the Player Array
+  ' Get the next line of text from the api response as the key
+  @NInput &key$
+ 
+  ' An empty key means we reached the end of the response
+  if len(key$) = 0 then exit
+  ' Get the next line of text from the api response as the value
+  @NInput &value$
+  
+  ' Depending on key, set appropriate variable to the value
+  if key$="dp" then DiscardTop=VAL(value$)
+  if key$="lmp" 
+  LastMovePlayed$=value$
+  EXIT
+  ENDIF
+loop 
+@NInput &dummy$ ' Read the Start of the Player Array
+INDEX=0
+do ' Loop reading key/value pairs until we reach the Start of the Player Array
+  ' Get the next line of text from the api response as the key
+  @NInput &key$
+  
+  ' An empty key means we reached the end of the response
+  if len(key$) = 0 then exit
+
+  ' Get the next line of text from the api response as the value
+  @NInput &value$
+ 
+  ' Depending on key, set appropriate variable to the value
+  if key$="n" then PlayerName$(INDEX)=value$
+  if key$="s" then PlayerStatus(INDEX)=VAL(value$)
+  if key$="nc" then PlayerHandCount(INDEX)=VAL(value$)
+  if key$="wc" then PlayerWhiteCounters(INDEX)=VAL(value$)
+  if key$="c" then PlayerBlackCounters(INDEX)=VAL(value$)
+  if key$="ph" then PlayerHand$(INDEX)=value$   
+  if key$="pvm" 
+  PlayerValidMoves$(INDEX)=value$
+INC INDEX  ' If read last field of a Player Array, increment index and read next player
+ENDIF
+loop 
+
+
+? "Finshed reading game state, this what we got so far"
+? "Card in the Drawdeck: ";Drawdeck
+? "Top of Discard: ";DiscardTop
+? "Last Move Played: ";LastMovePlayed$
+? "Players at the table:"
+for a=0 to 6
+ if PlayerName$(a)<>"" 
+  ? "Player ";(A+1);":";PlayerName$(a)
+  ? " Status:";PlayerStatus(a)
+  ? " HandCount:";PlayerHandCount(a)
+  ? " WhiteCounters:";PlayerWhiteCounters(a)
+  ? " BlackCounters:";PlayerBlackCounters(a)
+  ? " Score:";PlayerScore(a)
+  ? " Hand:";PlayerHand$(a)
+  ? " ValidMoves:";PlayerValidMoves$(a)
+ endif
+next a
+
+
+endproc
+
+
 
 
 '-------------------------------------------------------------

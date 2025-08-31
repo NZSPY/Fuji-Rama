@@ -62,8 +62,8 @@ type Deck []Card
 
 // card represents a playing card with it's name and value
 type Card struct {
-	Cardvalue int
-	Cardname  string
+	Cardvalue int    `json:"cv"`
+	Cardname  string `json:"cn"`
 }
 
 type Player struct {
@@ -81,6 +81,7 @@ type Player struct {
 	Message1       string    // Use on the results page to display the counters and score
 	Message2       string    // Additional message line for the results  if required
 	LastPolledTime time.Time // The time when the player last called the get state function
+	Handsumary     string    // store the hand summary form for sending via JSON to 8 bit computers the
 }
 
 // Players represents a the players at a table
@@ -229,20 +230,20 @@ func joinTable(c *gin.Context) {
 
 	switch {
 	case !ok:
-		c.JSON(http.StatusOK, "ERR(1)You need to specify a valid table and player name to join") // Notify the player to specify a table and player name
+		c.JSON(http.StatusNotFound, "ERR(1)You need to specify a valid table and player name to join") // Notify the player to specify a table and player name
 		return
 	case newplayerName == "":
-		c.JSON(http.StatusOK, "ERR(2)You need to supply a player name to join a table")
+		c.JSON(http.StatusNotFound, "ERR(2)You need to supply a player name to join a table")
 		return
 	case checkPlayerName(tableIndex, newplayerName):
-		c.JSON(http.StatusOK, "ERR(3) Sorry: "+newplayerName+" someone is already at table with that name ,please try a different table and or name") // Notify the player name is already taken
+		c.JSON(http.StatusNotFound, "ERR(3) Sorry: "+newplayerName+" someone is already at table with that name ,please try a different table and or name") // Notify the player name is already taken
 		return
 	case gameStates[tableIndex].Table.Status == "playing":
-		c.JSON(http.StatusOK, "ERR(4) Sorry: "+newplayerName+" table "+tables[tableIndex].Table+" has a game in progress, please try a different table") // Notify the player that the table is busy
+		c.JSON(http.StatusNotFound, "ERR(4) Sorry: "+newplayerName+" table "+tables[tableIndex].Table+" has a game in progress, please try a different table") // Notify the player that the table is busy
 		return
 	case gameStates[tableIndex].Table.Status == "full":
 		gameStates[tableIndex].Table.Status = "full"
-		c.JSON(http.StatusOK, "ERR(5) Sorry: "+newplayerName+" table "+tables[tableIndex].Table+" is full, please try a different table") // Notify the player that the table is full
+		c.JSON(http.StatusNotFound, "ERR(5) Sorry: "+newplayerName+" table "+tables[tableIndex].Table+" is full, please try a different table") // Notify the player that the table is full
 		return
 
 	default:
@@ -287,17 +288,17 @@ func StartNewGame(c *gin.Context) {
 	case !ok || tableIndex < 0 || tableIndex >= len(gameStates):
 		// If no table is specified or invalid table index, return an error
 		if !surpress {
-			c.JSON(http.StatusPartialContent, "You need to specify a valid table to start a new game EG: /start?table=ai1")
+			c.JSON(http.StatusNotFound, "You need to specify a valid table to start a new game EG: /start?table=ai1")
 		}
 		return
 	case gameStates[tableIndex].Table.CurPlayers == 0:
 		if !surpress {
-			c.JSON(http.StatusConflict, "Sorry: table "+tables[tableIndex].Table+" has no human players, please join the table before starting a game")
+			c.JSON(http.StatusNotFound, "Sorry: table "+tables[tableIndex].Table+" has no human players, please join the table before starting a game")
 		}
 		return
 	case gameStates[tableIndex].Table.Status == "playing":
 		if !surpress {
-			c.JSON(http.StatusConflict, "Sorry: table "+tables[tableIndex].Table+" has a game in progress, please try a different table")
+			c.JSON(http.StatusNotFound, "Sorry: table "+tables[tableIndex].Table+" has a game in progress, please try a different table")
 		}
 		return
 	default:
@@ -358,7 +359,7 @@ func getGameState(c *gin.Context) {
 	playerName := c.Query("player")
 
 	if !ok || playerName == "" {
-		c.JSON(http.StatusBadRequest, "Must specify both table and player name")
+		c.JSON(http.StatusNotFound, "ERR(6) Must specify both table and player name")
 		return
 	}
 
@@ -371,14 +372,15 @@ func getGameState(c *gin.Context) {
 		}
 	}
 	if !playerFound {
-		c.JSON(http.StatusBadRequest, "Player not found at this table")
+		c.JSON(http.StatusNotFound, "ERR(7) Player not found at this table")
 		return
 	}
 
-	// Update the player's last polled time
+	// Update the player's last polled time and get vaild moves
 	playerIndex := findPlayerIndex(tableIndex, playerName)
 	if playerIndex != -1 {
 		gameStates[tableIndex].Players[playerIndex].LastPolledTime = time.Now()
+		gameStates[tableIndex].Players[playerIndex].ValidMove = setValidmoves(tableIndex, playerIndex)
 	}
 
 	elapsed := time.Since(gameStates[tableIndex].startTime)
@@ -390,35 +392,9 @@ func getGameState(c *gin.Context) {
 		NumCards      int    `json:"nc"`
 		WhiteCounters int    `json:"wc"`
 		BlackCounters int    `json:"bc"`
+		HandSummary   string `json:"ph"`
+		ValidMove     string `json:"pvm"`
 	}, len(gameStates[tableIndex].Players))
-
-	// Find active player's hand and valid moves
-	// Initialize Requesting  player variables so can be loaded from the game state
-	var reqestingPlayerHand Deck
-	reqestingPlayerName := ""
-	reqestingPlayerStatus := STATUS_WAITING
-	reqestingPlayerWC := 0
-	reqestingPlayerBC := 0
-	reqestingPlayerValidMove := ""
-	index := 0
-	for _, player := range gameStates[tableIndex].Players {
-
-		if player.Name == playerName {
-			reqestingPlayerName = player.Name
-			reqestingPlayerStatus = player.Status
-			if player.Status == STATUS_PLAYING {
-				player.ValidMove = setValidmoves(tableIndex, index) // Get valid moves for the player
-			}
-			reqestingPlayerWC = player.Whitecounters
-			reqestingPlayerBC = player.Blackcounters
-			reqestingPlayerHand = player.Hand
-			reqestingPlayerValidMove = player.ValidMove
-			gameStates[tableIndex].Players[index] = player // Update the player in the game state
-			break
-		}
-		index++
-
-	}
 
 	for i, player := range gameStates[tableIndex].Players {
 		playerStates[i] = struct {
@@ -427,45 +403,37 @@ func getGameState(c *gin.Context) {
 			NumCards      int    `json:"nc"`
 			WhiteCounters int    `json:"wc"`
 			BlackCounters int    `json:"bc"`
+			HandSummary   string `json:"ph"`
+			ValidMove     string `json:"pvm"`
 		}{
 			Name:          player.Name,
 			Status:        player.Status,
 			NumCards:      player.NumCards,
 			WhiteCounters: player.Whitecounters,
 			BlackCounters: player.Blackcounters,
+			HandSummary:   makeHandSummary(tableIndex, i),
+			ValidMove:     player.ValidMove,
 		}
 	}
 
 	// Create simplified game state response with player's hand
 	response := struct {
-		DrawDeck        int         `json:"dd"`
-		DiscardPile     Card        `json:"dp"`
-		LastMovePlayed  string      `json:"lmp"` // Last move played
-		PlayerName      string      `json:"pn"`
-		PlayerStatus    Status      `json:"ps"`
-		PlayerWC        int         `json:"pwc"`
-		PlayerBC        int         `json:"pbc"`
-		PlayerValidMove string      `json:"pvm"`
-		PlayerHand      Deck        `json:"ph"`
-		Players         interface{} `json:"pls"`
+		DrawDeck       int         `json:"dd"`
+		DiscardPile    int         `json:"dp"`
+		LastMovePlayed string      `json:"lmp"` // Last move played
+		Players        interface{} `json:"pls"`
 	}{
 
-		DrawDeck:        gameStates[tableIndex].NumCards,
-		DiscardPile:     gameStates[tableIndex].Discard,
-		LastMovePlayed:  gameStates[tableIndex].LastMovePlayed,
-		PlayerName:      reqestingPlayerName,
-		PlayerStatus:    reqestingPlayerStatus,
-		PlayerWC:        reqestingPlayerWC,
-		PlayerBC:        reqestingPlayerBC,
-		PlayerValidMove: reqestingPlayerValidMove,
-		PlayerHand:      reqestingPlayerHand,
-		Players:         playerStates,
+		DrawDeck:       gameStates[tableIndex].NumCards,
+		DiscardPile:    gameStates[tableIndex].Discard.Cardvalue,
+		LastMovePlayed: gameStates[tableIndex].LastMovePlayed,
+		Players:        playerStates,
 	}
 
 	c.JSON(http.StatusOK, response)
 
-	// If the table is waiting for players and the waiting timer has exceeded 30 seconds, start the game
-	if elapsed >= 30*time.Second && gameStates[tableIndex].Table.Status == "waiting" {
+	// If the table is waiting for players and the waiting timer has exceeded 45 seconds, start the game
+	if elapsed >= 45*time.Second && gameStates[tableIndex].Table.Status == "waiting" {
 		gameStates[tableIndex].startTime = time.Now() // Reset the waiting timer
 		elapsed = time.Since(gameStates[tableIndex].startTime)
 		fmt.Println("Waiting timer exceeded, starting new game")
@@ -1013,4 +981,12 @@ func sortCards(tableIndex int, playerIndex int) {
 	sort.SliceStable(gameStates[tableIndex].Players[playerIndex].Hand[:], func(i, j int) bool {
 		return gameStates[tableIndex].Players[playerIndex].Hand[i].Cardvalue < gameStates[tableIndex].Players[playerIndex].Hand[j].Cardvalue
 	})
+}
+
+func makeHandSummary(tableIndex int, playerIndex int) string {
+	summary := ""
+	for _, card := range gameStates[tableIndex].Players[playerIndex].Hand {
+		summary += strconv.Itoa(card.Cardvalue)
+	}
+	return strings.TrimSpace(summary)
 }

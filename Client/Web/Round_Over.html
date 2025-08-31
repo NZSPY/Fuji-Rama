@@ -109,7 +109,7 @@ if (data.pls) {
         let handHtml = '<td colspan="2">';
         if (Array.isArray(currentPlayer.ph)) {
             currentPlayer.ph.forEach(card => {
-                const cardValue = typeof card === 'object' ? card.Cardvalue : card;
+                const cardValue = typeof card === 'object' ? card.cv : card;
                 handHtml += `<img src="LlamaCard${cardValue}.png" alt="Card ${cardValue}" style="width:100px; margin:2px;">`;
             });
         } else if (currentPlayer.ph) {
@@ -139,7 +139,7 @@ if (data.pls) {
         let hand1Html = '<td>';
         if (Array.isArray(player1.ph)) {
             player1.ph.forEach(card => {
-                const cardValue = typeof card === 'object' ? card.Cardvalue : card;
+                const cardValue = typeof card === 'object' ? card.cv : card;
                 hand1Html += `<img src="LlamaCard${cardValue}.png" alt="Card ${cardValue}" style="width:75px; margin:2px;">`;
             });
         } else if (player1.ph) {
@@ -155,7 +155,7 @@ if (data.pls) {
             let hand2Html = '<td>';
             if (Array.isArray(player2.ph)) {
                 player2.ph.forEach(card => {
-                    const cardValue = typeof card === 'object' ? card.Cardvalue : card;
+                    const cardValue = typeof card === 'object' ? card.cv : card;
                     hand2Html += `<img src="LlamaCard${cardValue}.png" alt="Card ${cardValue}" style="width:75px; margin:2px;">`;
                 });
             } else if (player2.ph) {
