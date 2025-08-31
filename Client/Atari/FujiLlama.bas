@@ -49,7 +49,8 @@ for i=0 to 6
  PlayerHand$(i)=""
  PlayerValidMoves$(i)=""
 next i
-
+moves$=""
+PlayerIndex=0
 ' Error variable
 _ERR=0    
 ' Index variable for reading FujiNet JSON data
@@ -84,7 +85,12 @@ loop
 
 REPEAT
  @readGameState
+  @DrawGameState
  GET K  
+ if K=68 or K=67 or K=78 or K=70 
+ moves$=CHR$(K)
+ @playMove 
+ endif
 UNTIL K=27
 
 
@@ -227,7 +233,7 @@ endproc
 
 ' Read the game state from the FujiNet API
 proc readGameState
-? "getting game state from FujiNet"
+' ? "getting game state from FujiNet"
 JSON$="/state?table="
 JSON$=+TableID$(_TN-1) 
 JSON$=+"&player="
@@ -281,30 +287,86 @@ do ' Loop reading key/value pairs until we reach the Start of the Player Array
 INC INDEX  ' If read last field of a Player Array, increment index and read next player
 ENDIF
 loop 
+' find the player index for the current player
+for a=0 to 6
+ if PlayerName$(a)=_name$
+ PlayerIndex=a
+ endif
+Next a
+endproc
 
+PROC DrawGameState ' Draw the current game state on the screen
+GRAPHICS 0
+SETCOLOR 2,0,0
+SETCOLOR 1,14,6
+POKE 82,0 'set margin to zero 
+? "****************************************";
+? "        *** Fuji-Llama ***            "
+? "****************************************";
+? "  ";tableName$(_TN-1);" - Player: ";_name$
 
-? "Finshed reading game state, this what we got so far"
-? "Card in the Drawdeck: ";Drawdeck
-? "Top of Discard: ";DiscardTop
-? "Last Move Played: ";LastMovePlayed$
-? "Players at the table:"
+if LastMovePlayed$="Waiting for players to join"
+? "Status: ";LastMovePlayed$
+exit
+ENDIF
+if LastMovePlayed$[12,0]="Game Started"
+? "Game has started, good luck"
+? "Dealing the cards to ..."
 for a=0 to 6
  if PlayerName$(a)<>"" 
   ? "Player ";(A+1);":";PlayerName$(a)
-  ? " Status:";PlayerStatus(a)
-  ? " HandCount:";PlayerHandCount(a)
-  ? " WhiteCounters:";PlayerWhiteCounters(a)
-  ? " BlackCounters:";PlayerBlackCounters(a)
-  ? " Score:";PlayerScore(a)
-  ? " Hand:";PlayerHand$(a)
-  ? " ValidMoves:";PlayerValidMoves$(a)
  endif
-next a
-
+Next a
+ENDIF
+? LastMovePlayed$
+? "****************************************";
+for a=0 to 6
+ if PlayerName$(a)<>"" and PlayerName$(a)<>_name$
+  ? PlayerName$(a);
+  ? " Cards in Hand:";PlayerHandCount(a)
+   ? "BC:";PlayerBlackCounters(a);
+  ? " WC:";PlayerWhiteCounters(a);
+  ? " Score:";PlayerScore(a)
+  
+ endif
+ Next a
+ ? "****************************************";
+ ? "Cards in Draw Deck:";Drawdeck
+ ? "Top card on Discard Pile:";DiscardTop
+ ? "****************************************";
+  ? " W:";PlayerWhiteCounters(PlayerIndex);
+  ? " C:";PlayerBlackCounters(PlayerIndex);
+  ? " Score:";PlayerScore(PlayerIndex)
+? "Your Hand:";PlayerHand$(PlayerIndex)
+? "Your Valid Moves:"
+if len(PlayerValidMoves$(PlayerIndex))=0
+ ? "Wait <press space to refresh>"
+else
+ for a=1 to len(PlayerValidMoves$(PlayerIndex))
+  moves$=PlayerValidMoves$(PlayerIndex)[a,1]
+if moves$="D" then ?"D (Draw) ";
+if moves$="C" then ?"C (Play Current) ";
+if moves$="N" then ?"N (Play Next) ";
+if moves$="F" then ? "F (Fold) "
+ next a
+endif
+? "***************************************";
 
 endproc
 
+' /move?table=ai3&player=Bob&VM=F
+proc playMove
 
+JSON$="/move?table="
+JSON$=+TableID$(_TN-1)
+JSON$=+"&player="
+JSON$=+_name$
+JSON$=+"&VM="
+JSON$=+moves$
+@CallFujiNet
+
+
+endproc
 
 
 '-------------------------------------------------------------
