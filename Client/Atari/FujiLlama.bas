@@ -51,6 +51,7 @@ for i=0 to 6
 next i
 moves$=""
 PlayerIndex=0
+dealt=0
 ' Error variable
 _ERR=0    
 ' Index variable for reading FujiNet JSON data
@@ -85,12 +86,14 @@ loop
 
 REPEAT
  @readGameState
+ if LastMovePlayed$[1,4]="(RE)" then @ShowResults
   @DrawGameState
  GET K  
  if K=68 or K=67 or K=78 or K=70 
  moves$=CHR$(K)
  @playMove 
  endif
+ if K=83 then @StartGame
 UNTIL K=27
 
 
@@ -307,9 +310,11 @@ POKE 82,0 'set margin to zero
 
 if LastMovePlayed$="Waiting for players to join"
 ? "Status: ";LastMovePlayed$
+? "<press space to refresh or (S) to Start>"
 exit
 ENDIF
-if LastMovePlayed$[12,0]="Game Started"
+if LastMovePlayed$[1,12]="Game Started" and dealt=0
+dealt=1
 ? "Game has started, good luck"
 ? "Dealing the cards to ..."
 for a=0 to 6
@@ -317,13 +322,15 @@ for a=0 to 6
   ? "Player ";(A+1);":";PlayerName$(a)
  endif
 Next a
+? "<press space to start>"
+exit
 ENDIF
 ? LastMovePlayed$
 ? "****************************************";
 for a=0 to 6
  if PlayerName$(a)<>"" and PlayerName$(a)<>_name$
-  ? PlayerName$(a);
-  ? " Cards in Hand:";PlayerHandCount(a)
+  ? PlayerName$(a);" has ";PlayerHandCount(a);" cards";
+? ":";PlayerStatus(a);":";
    ? "BC:";PlayerBlackCounters(a);
   ? " WC:";PlayerWhiteCounters(a);
   ? " Score:";PlayerScore(a)
@@ -350,13 +357,12 @@ if moves$="N" then ?"N (Play Next) ";
 if moves$="F" then ? "F (Fold) "
  next a
 endif
-? "***************************************";
+? "****************************************";
 
 endproc
 
 ' /move?table=ai3&player=Bob&VM=F
 proc playMove
-
 JSON$="/move?table="
 JSON$=+TableID$(_TN-1)
 JSON$=+"&player="
@@ -364,10 +370,27 @@ JSON$=+_name$
 JSON$=+"&VM="
 JSON$=+moves$
 @CallFujiNet
-
-
 endproc
 
+proc StartGame
+JSON$="/start?table="
+JSON$=+TableID$(_TN-1)
+@CallFujiNet
+endproc
+
+proc ShowResults
+JSON$="/results?table="
+JSON$=+TableID$(_TN-1)
+JSON$=+"&player="
+JSON$=+_name$
+@CallFujiNet
+? "****************************************";
+? "        *** Fuji-Llama ***            "
+? "****************************************";
+? "  ";tableName$(_TN-1);" - Player: ";_name$
+? "Round Over - Scores are"
+? "<press space to start new round>"
+endproc
 
 '-------------------------------------------------------------
 ' PROCEDURES to get Json data and load into the Var Result
