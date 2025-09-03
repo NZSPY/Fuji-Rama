@@ -107,13 +107,11 @@ if (data.pls) {
     if (currentPlayer) {
         allTablesHtml += `<tr><th colspan="2">${currentPlayer.n}'s cards are, ${currentPlayer.m1}</th></tr>`;
         let handHtml = '<td colspan="2">';
-        if (Array.isArray(currentPlayer.ph)) {
-            currentPlayer.ph.forEach(card => {
-                const cardValue = typeof card === 'object' ? card.cv : card;
+        if  (currentPlayer.ph) {
+            currentPlayer.ph.split('').forEach(cardValue => {
+              
                 handHtml += `<img src="LlamaCard${cardValue}.png" alt="Card ${cardValue}" style="width:100px; margin:2px;">`;
             });
-        } else if (currentPlayer.ph) {
-            handHtml += currentPlayer.ph;
         } else {
             handHtml += 'No cards';
         }
@@ -136,14 +134,16 @@ if (data.pls) {
         // Player cards
         allTablesHtml += '<tr>';
         // First player cards
+       // if (player1.ph) {
+       //     player1.ph.split('').forEach(cardValue => {
+       //         allTablesHtml += `<img src="LlamaCard${cardValue}.png" alt="Card ${cardValue}" style="width:75px; margin:2px;">`;
+       //     });
+       // }
         let hand1Html = '<td>';
-        if (Array.isArray(player1.ph)) {
-            player1.ph.forEach(card => {
-                const cardValue = typeof card === 'object' ? card.cv : card;
+        if  (player1.ph) {
+            player1.ph.split('').forEach(cardValue => {
                 hand1Html += `<img src="LlamaCard${cardValue}.png" alt="Card ${cardValue}" style="width:75px; margin:2px;">`;
             });
-        } else if (player1.ph) {
-            hand1Html += player1.ph;
         } else {
             hand1Html += 'No cards';
         }
@@ -153,13 +153,10 @@ if (data.pls) {
         // Second player cards (if exists)
         if (player2) {
             let hand2Html = '<td>';
-            if (Array.isArray(player2.ph)) {
-                player2.ph.forEach(card => {
-                    const cardValue = typeof card === 'object' ? card.cv : card;
-                    hand2Html += `<img src="LlamaCard${cardValue}.png" alt="Card ${cardValue}" style="width:75px; margin:2px;">`;
-                });
-            } else if (player2.ph) {
-                hand2Html += player2.ph;
+                if  (player2.ph) {
+                player2.ph.split('').forEach(cardValue => {
+                hand2Html += `<img src="LlamaCard${cardValue}.png" alt="Card ${cardValue}" style="width:75px; margin:2px;">`;
+            }); 
             } else {
                 hand2Html += 'No cards';
             }

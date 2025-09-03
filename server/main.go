@@ -815,20 +815,20 @@ func getResults(c *gin.Context) {
 	tableIndex, ok := getTableIndex(c)
 	if !ok { // If no table is specified or invalid table index, return an error
 
-		c.JSON(http.StatusBadRequest, "Must specify a valid table")
+		c.JSON(http.StatusNotFound, "ERR(1) Must specify a valid table")
 
 		return
 	}
 
 	// Check if the round is over
 	if !gameStates[tableIndex].RoundOver {
-		c.JSON(http.StatusConflict, "Sorry: table "+tables[tableIndex].Table+" round is not over yet, please wait until the round has ended before checking results")
+		c.JSON(http.StatusNotFound, "ERR(8) Sorry: table "+tables[tableIndex].Table+" round is not over yet, please wait until the round has ended before checking results")
 		return
 	}
 
 	// Check there are players is at this table
 	if gameStates[tableIndex].Table.CurPlayers == 0 {
-		c.JSON(http.StatusConflict, "Sorry: table "+tables[tableIndex].Table+" has no human players, please join the table before checking results")
+		c.JSON(http.StatusNotFound, "ERR(9) Sorry: table "+tables[tableIndex].Table+" has no human players, please join the table before checking results")
 		return
 	}
 
@@ -854,29 +854,29 @@ func getResults(c *gin.Context) {
 
 	// Create player state info for all players at table
 	playerStates := make([]struct {
-		PlayerName string `json:"n"`
-		PlayerHand Deck   `json:"ph"`
-		Message1   string `json:"m1"`
-		Message2   string `json:"m2"`
-		RoundScore int    `json:"rs"`
-		Score      int    `json:"s"`
+		PlayerName  string `json:"n"`
+		HandSummary string `json:"ph"`
+		Message1    string `json:"m1"`
+		Message2    string `json:"m2"`
+		RoundScore  int    `json:"rs"`
+		Score       int    `json:"s"`
 	}, len(gameStates[tableIndex].Players))
 
 	for i, player := range gameStates[tableIndex].Players {
 		playerStates[i] = struct {
-			PlayerName string `json:"n"`
-			PlayerHand Deck   `json:"ph"`
-			Message1   string `json:"m1"`
-			Message2   string `json:"m2"`
-			RoundScore int    `json:"rs"`
-			Score      int    `json:"s"`
+			PlayerName  string `json:"n"`
+			HandSummary string `json:"ph"`
+			Message1    string `json:"m1"`
+			Message2    string `json:"m2"`
+			RoundScore  int    `json:"rs"`
+			Score       int    `json:"s"`
 		}{
-			PlayerName: player.Name,
-			PlayerHand: player.Hand,
-			Message1:   player.Message1,
-			Message2:   player.Message2,
-			RoundScore: player.RoundScore,
-			Score:      player.Score,
+			PlayerName:  player.Name,
+			HandSummary: makeHandSummary(tableIndex, i),
+			Message1:    player.Message1,
+			Message2:    player.Message2,
+			RoundScore:  player.RoundScore,
+			Score:       player.Score,
 		}
 	}
 	// Sort by score, this will sort the players by their score in ascending order

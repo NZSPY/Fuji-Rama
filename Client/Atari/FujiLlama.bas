@@ -33,12 +33,15 @@ ok=0
 ' Player and table selection variables
 _TN=0
 _name$=""
+gameover=0
+shown=0
 
 ' Game state variables
-Dim PlayerName$(6),PlayerStatus(6),PlayerHandCount(6),PlayerWhiteCounters(6),PlayerBlackCounters(6),PlayerScore(6),PlayerHand$(6),PlayerValidMoves$(6)
+Dim PlayerName$(6),PlayerStatus(6),PlayerHandCount(6),PlayerWhiteCounters(6),PlayerBlackCounters(6),PlayerScore(6),PlayerHand$(6),PlayerValidMoves$(6),PlayerMessage1$(6),PlayerMessage2$(6),PlayerRoundScore(6)
 Drawdeck=0
 DiscardTop=0
 LastMovePlayed$=""
+PreviousLastMovePlayed$=""
 for i=0 to 6
  playerName$(i)=""
  PlayerStatus(i)=0
@@ -48,10 +51,17 @@ for i=0 to 6
  PlayerScore(i)=0
  PlayerHand$(i)=""
  PlayerValidMoves$(i)=""
+  PlayerMessage1$(i)=""
+  PlayerMessage2$(i)=""
+  PlayerRoundScore(i)=0
 next i
 moves$=""
 PlayerIndex=0
 dealt=0
+' Game Result variables
+MessageLine1$=""
+MessageLine2$=""
+MessageLine3$=""
 ' Error variable
 _ERR=0    
 ' Index variable for reading FujiNet JSON data
@@ -67,7 +77,7 @@ __NI_resultLen=0
 
 ' --------- Main program -----------------------------
 ' Loop until the player has successfully joined a table
-
+Repeat
 do 
   ' Draw the welcome screen and display the tables available to join
   @welcome
@@ -86,34 +96,33 @@ loop
 
 REPEAT
  @readGameState
- if LastMovePlayed$[1,4]="(RE)" then @ShowResults
+ if LastMovePlayed$[1,4]="(RE)"
+  if shown=0 
+    @ShowResults
+    shown=1
+  endif
+  if gameover=1 then exit
+ elif LastMovePlayed$<>PreviousLastMovePlayed$
   @DrawGameState
- GET K  
+  PreviousLastMovePlayed$=LastMovePlayed$
+  if dealt=1 then PreviousLastMovePlayed$="Cards Dealt"
+ endif
+ K=0
+ if PlayerStatus(PlayerIndex)=1 or LastMovePlayed$[1,4]="Wait" then GET K  
  if K=68 or K=67 or K=78 or K=70 
- moves$=CHR$(K)
- @playMove 
+  moves$=CHR$(K)
+  @playMove 
  endif
  if K=83 then @StartGame
 UNTIL K=27
 
-
+UNTIL K=27
 ' all done for now exit the program
-
 NCLOSE UNIT ' Close encase it's still open
-? "          Coming soon !!" 
-? "  - rest of game not yet implemented"
-? "    Press any key to exit"
-GET K
 ' Exit the program
 END
 
-
-
-
-
-
-
-
+' --------- End of Main program ----------------------
 
 proc welcome
 ' This procedure draws the welcome screen and displays the tables available to join
@@ -191,49 +200,6 @@ JSON$=+_name$
 endproc
 
 
-' Check data returned from FujiNet to see if it was successful or not
-' and display appropriate message
-Proc checkErrors
-ok = 1
-if len(dummy$) > 0 then
-_ERR=VAL(dummy$[5,1])
-  if _ERR=1 
-    ok = 0
-    ? " You need to specify a valid table"
-?     " and player name to join"
-  elif _ERR=2 
-    ok = 0
-    ? " You need to supply a player name"
-    ? " to join a table"
-  elif _ERR=3 
-    ok = 0
-    ? "Sorry: ";_name$;" someone is already"
-    ? "at table ";TableName$(_TN-1);"with that name,"
-    ? "please try a different"
-    ? "table and or name"
-  
-  elif _ERR=4 
-    ok = 0
-    ? "Sorry: ";_name$;" table ";TableName$(_TN-1)
-    ? " has a game in progress,"
-    ? "please try a different table"
-  elif _ERR=5 
-    ok = 0
-    ? "Sorry: ";_name$;" table ";TableName$(_TN-1);
-    ? " is full, please try a different table"
-  elif _ERR=6 
-    ok = 0
-    ? "Must specify both table and player name"
- elif _ERR=7 
-    ok = 0
-    ? "Player not found at this table"
-else
-  ok = 1
-endif
-
-endproc
-
-
 ' Read the game state from the FujiNet API
 proc readGameState
 ' ? "getting game state from FujiNet"
@@ -288,6 +254,7 @@ do ' Loop reading key/value pairs until we reach the Start of the Player Array
   if key$="pvm" 
   PlayerValidMoves$(INDEX)=value$
 INC INDEX  ' If read last field of a Player Array, increment index and read next player
+PlayerScore(INDEX)=(PlayerBlackCounters(INDEX)*10)+PlayerWhiteCounters(INDEX)
 ENDIF
 loop 
 ' find the player index for the current player
@@ -310,7 +277,7 @@ POKE 82,0 'set margin to zero
 
 if LastMovePlayed$="Waiting for players to join"
 ? "Status: ";LastMovePlayed$
-? "<press space to refresh or (S) to Start>"
+? "<or press (S) to Start>"
 exit
 ENDIF
 if LastMovePlayed$[1,12]="Game Started" and dealt=0
@@ -341,14 +308,14 @@ for a=0 to 6
  ? "Cards in Draw Deck:";Drawdeck
  ? "Top card on Discard Pile:";DiscardTop
  ? "****************************************";
-  ? " W:";PlayerWhiteCounters(PlayerIndex);
-  ? " C:";PlayerBlackCounters(PlayerIndex);
+  ? "BC:";PlayerBlackCounters(PlayerIndex);
+  ? " WC:";PlayerWhiteCounters(PlayerIndex);
   ? " Score:";PlayerScore(PlayerIndex)
 ? "Your Hand:";PlayerHand$(PlayerIndex)
-? "Your Valid Moves:"
 if len(PlayerValidMoves$(PlayerIndex))=0
- ? "Wait <press space to refresh>"
+ ? "Please wait for others to play"
 else
+? "Your Valid Moves:"
  for a=1 to len(PlayerValidMoves$(PlayerIndex))
   moves$=PlayerValidMoves$(PlayerIndex)[a,1]
 if moves$="D" then ?"D (Draw) ";
@@ -363,6 +330,7 @@ endproc
 
 ' /move?table=ai3&player=Bob&VM=F
 proc playMove
+shown=0
 JSON$="/move?table="
 JSON$=+TableID$(_TN-1)
 JSON$=+"&player="
@@ -384,13 +352,139 @@ JSON$=+TableID$(_TN-1)
 JSON$=+"&player="
 JSON$=+_name$
 @CallFujiNet
+@NInputInit UNIT, &responseBuffer
+@NInput &dummy$
+@checkErrors
+if ok <>1 then Exit
+@NInput &dummy$
+MessageLine1$=dummy$
+key$="" : value$=""
+do ' Loop reading key/value pairs until we reach the Start of the Player Array
+  ' Get the next line of text from the api response as the key
+  @NInput &key$
+  ' An empty key means we reached the end of the response
+  if len(key$) = 0 then exit
+  ' Get the next line of text from the api response as the value
+  @NInput &value$
+  ' Depending on key, set appropriate variable to the value
+  if key$="msg2" then MessageLine2$=value$
+  if key$="msg3" 
+  MessageLine3$=value$
+  EXIT
+  ENDIF
+loop 
+@NInput &dummy$ ' Read the Start of the Player Array
+INDEX=0
+do ' Loop reading key/value pairs until we reach the Start of the Player Array
+  ' Get the next line of text from the api response as the key
+  @NInput &key$
+  
+  ' An empty key means we reached the end of the response
+  if len(key$) = 0 then exit
+
+  ' Get the next line of text from the api response as the value
+  @NInput &value$
+ 
+  ' Depending on key, set appropriate variable to the value
+  if key$="n" then PlayerName$(INDEX)=value$
+  if key$="ph" then PlayerHand$(INDEX)=value$   
+  if key$="m1" then PlayerMessage1$(INDEX)=value$
+  if key$="m2" then PlayerMessage2$(INDEX)=value$
+  if key$="rs" then PlayerRoundScore(INDEX)=VAL(value$)
+  if key$="s" 
+  PlayerScore(INDEX)=VAL(value$)
+  INC INDEX  ' If read last field of a Player Array, increment index and read next player
+ENDIF
+loop 
+' find the player index for the current player
+for a=0 to 6
+ if PlayerName$(a)=_name$
+ PlayerIndex=a
+ endif
+Next a
 ? "****************************************";
 ? "        *** Fuji-Llama ***            "
 ? "****************************************";
 ? "  ";tableName$(_TN-1);" - Player: ";_name$
 ? "Round Over - Scores are"
+? MessageLine1$
+if MessageLine2$<>"" then ? MessageLine2$
+if MessageLine3$<>"" 
+? MessageLine3$
+gameover=1
+ENDIF
+? "****************************************";
+for a=0 to 6
+ if PlayerName$(a)<>""
+  ? PlayerName$(a);"'s cards are ";PlayerHand$(a);",";
+  ? PlayerMessage1$(a);
+  ? PlayerMessage2$(a);
+  ? "----------------------------------------";
+endif
+ Next a
+? "****************************************";
+? "<press space see the Leaderboard>"
+GET K
+? "Name                         Round Score";
+for a=0 to 6
+ if PlayerName$(a)<>""
+  ? PlayerName$(a);"          ";PlayerRoundScore(a);" ";PlayerScore(a)
+endif
+ Next a
+? "****************************************";
 ? "<press space to start new round>"
+GET K
 endproc
+
+
+' Check data returned from FujiNet to see if it was successful or not
+' and display appropriate message
+Proc checkErrors
+ok = 1
+if len(dummy$) > 0 then
+_ERR=VAL(dummy$[5,1])
+  if _ERR=1 
+    ok = 0
+    ? " You need to specify a valid table"
+  elif _ERR=2 
+    ok = 0
+    ? " You need to supply a player name"
+    ? " to join a table"
+  elif _ERR=3 
+    ok = 0
+    ? "Sorry: ";_name$;" someone is already"
+    ? "at table ";TableName$(_TN-1);"with that name,"
+    ? "please try a different"
+    ? "table and or name"
+  
+  elif _ERR=4 
+    ok = 0
+    ? "Sorry: ";_name$;" table ";TableName$(_TN-1)
+    ? " has a game in progress,"
+    ? "please try a different table"
+  elif _ERR=5 
+    ok = 0
+    ? "Sorry: ";_name$;" table ";TableName$(_TN-1);
+    ? " is full, please try a different table"
+  elif _ERR=6 
+    ok = 0
+    ? "Must specify both table and player name"
+ elif _ERR=7 
+    ok = 0
+    ? "Player not found at this table"
+  elif _ERR=8 
+    ok = 0
+    ? "Round is not over yet, no results available"
+  elif _ERR=9 
+    ok = 0
+    ? "No human players at this table"
+else
+  ok = 1
+endif
+
+endproc
+
+
 
 '-------------------------------------------------------------
 ' PROCEDURES to get Json data and load into the Var Result
