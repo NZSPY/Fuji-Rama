@@ -1,6 +1,9 @@
 ' Fuji-Llama Title Page
 ' Written in Atari FastBasic
-' @author  Simon Young
+' @author  Simon Young (with lots of help from Eric Carr and Thomas Cherryhomes)
+' @version September 2025
+' This is a client for the Fuji-Llama game server
+
 
 
 ' Disable BASIC on XL/XE to make more memory available. (found in Erics 5card code don't know if I need it or not)
@@ -57,7 +60,7 @@ for i=0 to 6
 next i
 moves$=""
 PlayerIndex=0
-dealt=0
+
 ' Game Result variables
 MessageLine1$=""
 MessageLine2$=""
@@ -105,7 +108,6 @@ REPEAT
  elif LastMovePlayed$<>PreviousLastMovePlayed$
   @DrawGameState
   PreviousLastMovePlayed$=LastMovePlayed$
-  if dealt=1 then PreviousLastMovePlayed$="Cards Dealt"
  endif
  K=0
  if PlayerStatus(PlayerIndex)=1 or LastMovePlayed$[1,4]="Wait" then GET K  
@@ -114,6 +116,7 @@ REPEAT
   @playMove 
  endif
  if K=83 then @StartGame
+ if k=32 then PreviousLastMovePlayed$=""
 UNTIL K=27
 
 UNTIL K=27
@@ -249,12 +252,12 @@ do ' Loop reading key/value pairs until we reach the Start of the Player Array
   if key$="s" then PlayerStatus(INDEX)=VAL(value$)
   if key$="nc" then PlayerHandCount(INDEX)=VAL(value$)
   if key$="wc" then PlayerWhiteCounters(INDEX)=VAL(value$)
-  if key$="c" then PlayerBlackCounters(INDEX)=VAL(value$)
+  if key$="bc" then PlayerBlackCounters(INDEX)=VAL(value$)
   if key$="ph" then PlayerHand$(INDEX)=value$   
   if key$="pvm" 
   PlayerValidMoves$(INDEX)=value$
-INC INDEX  ' If read last field of a Player Array, increment index and read next player
-PlayerScore(INDEX)=(PlayerBlackCounters(INDEX)*10)+PlayerWhiteCounters(INDEX)
+  PlayerScore(INDEX)=(PlayerBlackCounters(INDEX)*10)+PlayerWhiteCounters(INDEX)
+  INC INDEX  ' If read last field of a Player Array, increment index and read next player
 ENDIF
 loop 
 ' find the player index for the current player
@@ -274,24 +277,18 @@ POKE 82,0 'set margin to zero
 ? "        *** Fuji-Llama ***            "
 ? "****************************************";
 ? "  ";tableName$(_TN-1);" - Player: ";_name$
-
 if LastMovePlayed$="Waiting for players to join"
-? "Status: ";LastMovePlayed$
-? "<or press (S) to Start>"
-exit
-ENDIF
-if LastMovePlayed$[1,12]="Game Started" and dealt=0
-dealt=1
-? "Game has started, good luck"
-? "Dealing the cards to ..."
 for a=0 to 6
- if PlayerName$(a)<>"" 
+  if PlayerName$(a)<>"" 
   ? "Player ";(A+1);":";PlayerName$(a)
- endif
+  endif
 Next a
-? "<press space to start>"
+? "      Waiting for players to join"
+? "   <Space to refresh or (S) to Start>"
+? "****************************************";
 exit
 ENDIF
+
 ? LastMovePlayed$
 ? "****************************************";
 for a=0 to 6
@@ -325,10 +322,9 @@ if moves$="F" then ? "F (Fold) "
  next a
 endif
 ? "****************************************";
-
 endproc
 
-' /move?table=ai3&player=Bob&VM=F
+
 proc playMove
 shown=0
 JSON$="/move?table="
@@ -406,19 +402,19 @@ Next a
 ? "        *** Fuji-Llama ***            "
 ? "****************************************";
 ? "  ";tableName$(_TN-1);" - Player: ";_name$
-? "Round Over - Scores are"
+
 ? MessageLine1$
 if MessageLine2$<>"" then ? MessageLine2$
 if MessageLine3$<>"" 
 ? MessageLine3$
 gameover=1
 ENDIF
-? "****************************************";
+?  "****************************************";
 for a=0 to 6
  if PlayerName$(a)<>""
-  ? PlayerName$(a);"'s cards are ";PlayerHand$(a);",";
-  ? PlayerMessage1$(a);
-  ? PlayerMessage2$(a);
+  ? PlayerName$(a);"'s cards are ";PlayerHand$(a)
+  ? PlayerMessage1$(a)
+  ? PlayerMessage2$(a)
   ? "----------------------------------------";
 endif
  Next a
