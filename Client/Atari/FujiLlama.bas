@@ -76,6 +76,10 @@ __NI_bufferEnd=0
 __NI_indexStop=0
 __NI_resultLen=0
 
+' Silence the loud SIO noise
+poke 65,0
+
+
 
 
 ' --------- Main program -----------------------------
@@ -585,3 +589,4 @@ PROC NInput __NI_stringPointer
     __NI_index = __NI_indexStop + 1
   endif
 ENDPROC
+
