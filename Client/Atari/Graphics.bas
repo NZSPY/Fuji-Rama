@@ -49,22 +49,24 @@ DIM Screen
 
 ' ==========================================================
 ' DATA - Character Fonts
+' Custom character set for FujiLlama - 128 characters, 8 bytes each
+' Size: 1024 bytes
 data font() byte = 0,0,0,0,0,0,0,0,
-data byte = 170,170,170,170,170,170,170,170,
-data byte = 170,174,187,187,171,174,186,191,
-data byte = 170,174,187,171,174,171,187,174,
-data byte = 170,171,187,187,191,171,171,171,
-data byte = 170,191,186,190,171,171,171,190,
-data byte = 170,175,186,190,187,187,187,174,
-data byte = 170,191,187,171,174,174,174,174,
-data byte = 170,174,187,187,174,187,187,174,
-data byte = 170,174,187,187,187,175,171,190,
-data byte = 170,186,187,187,187,187,187,186,
-data byte = 170,234,186,186,186,186,186,234,
-data byte = 170,175,171,171,171,187,187,174,
-data byte = 170,174,187,187,187,187,174,171,
-data byte = 170,187,187,190,190,187,187,187,
-data byte = 170,174,187,187,191,187,187,187,
+data byte = 64,64,64,64,64,64,64,85,
+data byte = 0,0,0,0,0,0,0,85,
+data byte = 1,1,1,1,1,1,1,85,
+data byte = 64,64,64,64,64,64,76,85,
+data byte = 64,64,64,64,76,64,76,85,
+data byte = 64,64,76,64,76,64,76,85,
+data byte = 0,0,0,0,0,0,32,85,
+data byte = 0,0,0,0,32,0,32,85,
+data byte = 0,0,32,0,32,0,32,85,
+data byte = 32,0,32,0,32,0,32,85,
+data byte = 1,1,1,1,1,1,33,85,
+data byte = 1,1,1,1,33,1,33,85,
+data byte = 10,47,191,181,183,183,183,181,
+data byte = 128,224,248,120,248,248,248,248,
+data byte = 183,183,183,183,183,191,47,10,
 data byte = 0,32,136,136,136,136,136,32,
 data byte = 0,32,160,32,32,32,32,168,
 data byte = 0,32,136,136,8,32,128,168,
@@ -76,10 +78,10 @@ data byte = 0,168,136,8,32,32,32,32,
 data byte = 0,32,136,136,32,136,136,32,
 data byte = 0,32,136,136,136,40,8,160,
 data byte = 0,0,32,32,0,0,32,32,
-data byte = 0,0,0,0,0,3,15,12,
-data byte = 0,0,0,0,192,240,60,12,
-data byte = 12,12,12,15,3,0,0,0,
-data byte = 12,12,12,60,240,192,0,0,
+data byte = 248,248,248,248,248,248,224,128,
+data byte = 5,21,26,26,106,106,106,106,
+data byte = 85,85,170,170,170,170,170,170,
+data byte = 64,80,144,148,164,164,164,164,
 data byte = 12,12,12,12,12,12,12,12,
 data byte = 0,0,0,0,255,255,0,0,
 data byte = 0,32,168,136,136,168,136,136,
@@ -108,71 +110,71 @@ data byte = 0,136,136,136,136,168,168,136,
 data byte = 0,136,136,32,32,136,136,136,
 data byte = 0,136,136,136,168,32,32,32,
 data byte = 0,168,8,32,32,128,128,168,
-data byte = 0,0,0,0,0,0,0,0,
-data byte = 76,76,19,19,196,196,49,49,
-data byte = 77,77,17,17,197,197,49,49,
-data byte = 169,169,169,169,169,169,169,169,
-data byte = 169,233,185,185,185,185,185,233,
-data byte = 171,175,175,175,175,171,171,170,
-data byte = 186,254,254,254,254,250,250,234,
-data byte = 170,171,175,175,175,171,170,170,
-data byte = 234,250,254,254,254,250,234,170,
-data byte = 171,171,170,175,175,175,170,171,
-data byte = 250,250,234,254,190,190,234,250,
-data byte = 170,171,171,175,175,175,170,171,
-data byte = 234,250,250,254,254,190,234,250,
-data byte = 6,6,6,6,6,6,6,6,
-data byte = 1,1,1,1,1,1,1,1,
-data byte = 64,64,64,64,64,64,64,64,
-data byte = 0,0,0,0,0,0,1,1,
-data byte = 5,13,3,0,0,0,0,0,
-data byte = 0,0,0,0,0,85,85,170,
-data byte = 0,0,0,0,0,81,85,165,
-data byte = 170,85,85,255,0,0,0,0,
-data byte = 165,85,95,240,0,0,0,0,
-data byte = 0,0,0,0,0,21,85,106,
-data byte = 0,0,0,0,0,84,85,169,
-data byte = 106,85,213,63,0,0,0,0,
-data byte = 169,85,87,252,0,0,0,0,
-data byte = 0,0,0,0,0,21,85,113,
-data byte = 0,0,0,0,0,84,85,49,
-data byte = 127,85,213,63,0,0,0,0,
-data byte = 77,85,87,252,0,0,0,0,
+data byte = 106,106,106,106,26,26,21,5,
+data byte = 170,170,170,170,170,170,85,85,
+data byte = 164,164,164,164,148,144,80,64,
+data byte = 170,170,170,170,170,170,170,170,
+data byte = 106,106,106,106,106,106,106,106,
+data byte = 164,164,164,164,164,164,164,164,
+data byte = 165,149,154,154,106,106,106,106,
+data byte = 170,254,254,254,190,190,190,190,
+data byte = 190,190,190,190,190,255,255,170,
+data byte = 255,255,171,171,171,171,171,255,
+data byte = 255,234,234,234,234,234,255,255,
+data byte = 255,171,171,171,171,171,255,255,
+data byte = 171,171,235,235,235,235,235,255,
+data byte = 255,171,171,171,171,171,171,171,
+data byte = 170,170,255,255,234,234,234,234,
+data byte = 170,255,255,235,235,234,234,234,
+data byte = 255,235,235,235,235,235,235,255,
+data byte = 5,21,26,26,104,99,99,98,
+data byte = 85,85,170,170,168,35,35,2,
+data byte = 64,80,144,148,164,36,36,36,
+data byte = 98,104,98,98,98,98,98,98,
+data byte = 170,168,170,238,238,170,186,186,
+data byte = 36,164,36,36,36,36,36,36,
+data byte = 98,98,104,106,104,104,104,104,
+data byte = 254,186,168,18,18,68,100,168,
+data byte = 36,36,164,164,164,164,164,164,
+data byte = 96,96,97,97,17,19,23,5,
+data byte = 100,100,85,17,17,19,87,85,
+data byte = 36,36,36,36,20,16,80,64,
 data byte = 255,252,240,240,192,192,192,0,
 data byte = 255,63,15,15,3,3,3,0,
 data byte = 0,192,192,192,240,240,252,255,
 data byte = 0,3,3,3,15,15,63,255,
+data byte = 255,252,240,240,192,192,192,0,
 data byte = 0,0,0,0,0,0,0,0,
 data byte = 0,0,0,0,0,0,0,0,
 data byte = 0,0,0,0,0,0,0,0,
-data byte = 174,191,191,191,191,175,175,171,
-data byte = 233,249,249,249,249,233,233,169,
-data byte = 171,175,191,191,191,175,171,170,
-data byte = 169,233,249,249,249,233,169,169,
-data byte = 175,175,171,191,190,190,171,175,
-data byte = 233,233,169,249,249,249,169,233,
-data byte = 171,175,175,191,191,190,171,175,
-data byte = 169,233,233,249,249,249,169,233,
-data byte = 0,0,0,64,0,0,0,0,
-data byte = 0,0,0,0,0,0,16,16,
-data byte = 16,32,168,169,168,168,32,16,
-data byte = 0,48,252,253,252,252,48,16,
+data byte = 0,48,116,220,220,220,116,48,
+data byte = 5,21,31,31,126,126,126,126,
+data byte = 85,85,255,239,238,238,238,238,
+data byte = 64,80,208,212,244,244,244,244,
+data byte = 126,126,126,126,122,122,122,123,
+data byte = 238,238,238,238,238,238,238,239,
+data byte = 244,244,244,244,180,180,180,180,
+data byte = 123,123,127,127,125,125,125,125,
+data byte = 239,239,255,255,119,247,247,119,
+data byte = 180,180,244,244,244,244,244,244,
+data byte = 125,125,125,125,31,31,21,5,
+data byte = 247,247,247,245,255,255,85,85,
+data byte = 244,244,244,244,212,208,80,64,
 data byte = 16,16,16,85,16,16,16,16,
 data byte = 16,16,16,85,16,16,16,0,
 data byte = 0,0,16,21,16,16,0,0,
-data byte = 0,48,116,220,220,220,116,48,
-data byte = 0,48,184,236,236,236,184,48,
+data byte = 16,32,168,169,168,168,32,16,
+data byte = 16,48,184,236,236,236,184,48,
 data byte = 0,40,170,170,174,174,40,0,
 data byte = 0,40,170,170,186,186,40,0,
-data byte = 0,0,0,0,0,32,32,0,
 data byte = 0,0,0,0,0,32,32,128,
-data byte = 170,170,85,0,0,0,164,169,
+data byte = 0,32,236,184,184,184,236,32,
+data byte = 0,0,0,80,0,0,0,0,
 data byte = 0,148,164,164,164,164,164,148,
 data byte = 0,124,92,92,92,92,92,124,
 data byte = 0,0,0,32,24,20,28,48,
 data byte = 0,0,0,32,144,80,208,48,
 data byte = 0,40,138,138,130,170,170,40,
-data byte = 255,215,215,215,255,0,102,153,
 data byte = 0,8,8,32,32,32,128,128,
 data byte = 0,0,0,0,168,0,0,0,
 data byte = 0,0,0,0,0,0,0,0,
@@ -195,15 +197,26 @@ colorTheme=-1
 @ShowScreen
 
  N=13
-  @POS N,3: @Print &"      i"
-  @POS n,4: @Print &"     ljl"
-  
-  @POS n,5: @Print &"FUJInjpjhNET"
-  @POS n,6: @Print &"     lljh"
-  @POS n,7: @Print &"      mll"
-  @POS n,9:@Print &"FUJI - LLAMA"
-  @POS n-8,11:@Print &"A CARD GAME FOR UP TO 6 PLAYERS"
-  
+  @POS N,1: @Print &"      m"
+  @POS n,2: @Print &"     mpm"
+  @POS n,3: @Print &"FUJIopqpvNET"
+  @POS n,4: @Print &"     nmpv"
+  @POS n,5: @Print &"      nmm"
+  @POS n+3,7:@Print &"PRESENTS"
+  @POS n+2,8:@Print &"FUJI-LLAMA"
+  @POS n-8,10:@Print &"A CARD GAME FOR UP TO 6 PLAYERS"
+  @POS n-8,11:@Print &"???????@@@@@@@@@"
+  @POS n-8,12:@PrintINV &"??????@@@@@@@@@"
+  @PrintCard 0,13,0
+  @PrintCard 4,13,1
+  @PrintCard 8,13,2
+  @PrintCard 12,13,3
+  @PrintCard 16,13,4
+  @PrintCard 20,13,5
+  @PrintCard 24,13,6
+  @PrintCard 28,13,7
+  @PrintCard 32,13,8
+
 
 
 Repeat
@@ -212,6 +225,56 @@ Get K
 UNTIL K=27
 
 END
+
+Proc PrintCard _col _row _card
+IF _card=0  
+    @POS _col,_row:@PrintByte 28:@PrintByte 29:@PrintByte 30
+    @POS _col,_row+1:@PrintByte 63:@PrintByte 62:@PrintByte 64
+    @POS _col,_row+1:@PrintByte 63:@PrintByte 62:@PrintByte 64
+    @POS _col,_row+1:@PrintByte 59:@PrintByte 60:@PrintByte 61
+ElIF _card=1 
+    @POS _col,_row:@PrintByte 28:@PrintByte 29:@PrintByte 30
+    @POS _col,_row+1:@PrintByte 63:@PrintByte 66:@PrintByte 64
+    @POS _col,_row+1:@PrintByte 63:@PrintByte 67:@PrintByte 64
+    @POS _col,_row+1:@PrintByte 59:@PrintByte 60:@PrintByte 61
+ElIF _card=2 
+    @POS _col,_row:@PrintByte 28:@PrintByte 29:@PrintByte 30
+    @POS _col,_row+1:@PrintByte 63:@PrintByte 196:@PrintByte 64
+    @POS _col,_row+1:@PrintByte 63:@PrintByte 197:@PrintByte 64
+    @POS _col,_row+1:@PrintByte 59:@PrintByte 60:@PrintByte 61
+ElIF _card=3 
+    @POS _col,_row:@PrintByte 28:@PrintByte 29:@PrintByte 30
+    @POS _col,_row+1:@PrintByte 63:@PrintByte 68:@PrintByte 64
+    @POS _col,_row+1:@PrintByte 63:@PrintByte 70:@PrintByte 64
+    @POS _col,_row+1:@PrintByte 59:@PrintByte 60:@PrintByte 61
+ElIF _card=4 
+    @POS _col,_row:@PrintByte 28:@PrintByte 29:@PrintByte 30
+    @POS _col,_row+1:@PrintByte 63:@PrintByte 199:@PrintByte 64
+    @POS _col,_row+1:@PrintByte 63:@PrintByte 200:@PrintByte 64
+    @POS _col,_row+1:@PrintByte 59:@PrintByte 60:@PrintByte 61
+ElIF _card=5 
+    @POS _col,_row:@PrintByte 28:@PrintByte 29:@PrintByte 30
+    @POS _col,_row+1:@PrintByte 63:@PrintByte 73:@PrintByte 64
+    @POS _col,_row+1:@PrintByte 63:@PrintByte 70:@PrintByte 64
+    @POS _col,_row+1:@PrintByte 59:@PrintByte 60:@PrintByte 61
+ElIF _card=6 
+    @POS _col,_row:@PrintByte 28:@PrintByte 29:@PrintByte 30
+    @POS _col,_row+1:@PrintByte 63:@PrintByte 202:@PrintByte 64
+    @POS _col,_row+1:@PrintByte 63:@PrintByte 203:@PrintByte 64
+    @POS _col,_row+1:@PrintByte 59:@PrintByte 60:@PrintByte 61
+ElIF _card=7 
+    @POS _col,_row:@PrintByte 204:@PrintByte 205:@PrintByte 206
+    @POS _col,_row+1:@PrintByte 207:@PrintByte 208:@PrintByte 209
+    @POS _col,_row+1:@PrintByte 210:@PrintByte 211:@PrintByte 212
+    @POS _col,_row+1:@PrintByte 213:@PrintByte 214:@PrintByte 215
+ElIF _card=8 
+    @POS _col,_row:@Print &"abc"
+    @POS _col,_row+1:@Print &"def"
+    @POS _col,_row+1:@Print &"ghi"
+    @POS _col,_row+1:@Print &"jkl"
+endif
+ENDPROC
+
 
 
 ' ============================================================================
@@ -331,8 +394,8 @@ PROC ResetScreen
   mset screen,40*26,0
   
   ' Draw the four black corners of the screen
-  poke screen, 89:poke screen+39,90
-  poke screen+40*24, 91:poke screen+40*25-1,92
+  poke screen, 88:poke screen+39,89
+  poke screen+40*24, 90:poke screen+40*25-1,91
 ENDPROC
 
 ' Call to show the screen, or occasionally to stop Atari attract/screensaver color mode from occuring
