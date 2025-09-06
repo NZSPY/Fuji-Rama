@@ -338,18 +338,26 @@ proc TitleScreen
   @PrintCard 29,13,7
   @PrintCard 33,13,8
 
-Repeat
-@CycleColorTheme
+@printPlayerScore 23,17,0,0
+@printPlayerScore 10,12,1,0
+@printPlayerScore 10,6,2,0
+@printPlayerScore 22,0,2,0
+@printPlayerScore 35,6,0,0
+@printPlayerScore 35,12,1,1
+
+Repeat ' wait for player to press C to change color theme or any other key to continue
 Get K
-UNTIL K=27
+if K=67 
+  @CycleColorTheme
+  K=0
+endif
+UNTIL K<>0
 Endproc
 
 
 
-
+' This procedure draws the table selection screen and displays the tables available to join
 proc tableSelection
-' This procedure draws the welcome screen and displays the tables available to join
-' Draw the opening screen 
 @EnableDoubleBuffer
 @ResetScreen
 @DrawTheWelcomeScreen
@@ -398,13 +406,14 @@ next a
 @ShowScreen
 @POS 5,22: @Print &  "ENTER YOUR NAME"
 
-GET K 
+
+GET K ' make name and table input code here 
 
 @POS 5,22: @Print & "ENTER THE TABLE NUMBER TO JOIN"
-GET K 
+
 
 _name$="SIMON" ' for testing only
-_TN =1 ' for testing only
+_TN = 5 ' for testing only
 
 JSON$="/join?table="
 JSON$=+TableID$(_TN-1) ' Join the table based on the name selected
@@ -412,9 +421,9 @@ JSON$=+"&player="
 JSON$=+_name$
 
 
-@POS X,Y+1: @Print &    "CONNECTING TO TABLE...                  "
+@POS X,22: @Print &    "CONNECTING TO TABLE"                  
 
-@POS X,Y+2: @Print &    "PLEASE WAIT THIS MAY TAKE A MOMENT... "
+@POS X,23: @Print &    "PLEASE WAIT THIS MAY TAKE A MOMENT"
 
 
 @CallFujiNet ' Call the FujiNet API to join the table
@@ -443,12 +452,10 @@ key$="" : value$=""
 do ' Loop reading key/value pairs until we reach the Start of the Player Array
   ' Get the next line of text from the api response as the key
   @NInput &key$
- 
   ' An empty key means we reached the end of the response
   if len(key$) = 0 then exit
   ' Get the next line of text from the api response as the value
   @NInput &value$
-  
   ' Depending on key, set appropriate variable to the value
   if key$="dp" then DiscardTop=VAL(value$)
   if key$="lmp" 
@@ -461,13 +468,10 @@ INDEX=0
 do ' Loop reading key/value pairs until we reach the Start of the Player Array
   ' Get the next line of text from the api response as the key
   @NInput &key$
-  
   ' An empty key means we reached the end of the response
   if len(key$) = 0 then exit
-
   ' Get the next line of text from the api response as the value
   @NInput &value$
- 
   ' Depending on key, set appropriate variable to the value
   if key$="n" then PlayerName$(INDEX)=value$
   if key$="s" then PlayerStatus(INDEX)=VAL(value$)
@@ -490,9 +494,8 @@ Next a
 endproc
 
 
-' This procedure draws the welcome screen and blank table grid
+' This procedure draws the Table section sreen with a blank table grid
 Proc DrawTheWelcomeScreen
-
 @POS 10,2: @Print &"WELCOME TO FUJI-LLAMA"
 @PrintCard 2,3,7:@PrintCard 35,3,8
 @POS 5,4: @PrintINV &"@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
@@ -510,23 +513,24 @@ endproc
 
 
 PROC DrawGameState ' Draw the current game state on the screen
-GRAPHICS 0
-SETCOLOR 2,0,0
-SETCOLOR 1,14,6
-POKE 82,0 'set margin to zero 
-? "****************************************";
-? "        *** Fuji-Llama ***            "
-? "****************************************";
-? "  ";tableName$(_TN-1);" - Player: ";_name$
+
+@ResetScreen
+@ShowScreen
+' Draw the empty table and waiting message if needed
 if LastMovePlayed$="Waiting for players to join"
-for a=0 to 6
-  if PlayerName$(a)<>"" 
-  ? "Player ";(A+1);":";PlayerName$(a)
-  endif
-Next a
-? "      Waiting for players to join"
-? "   <Space to refresh or (S) to Start>"
-? "****************************************";
+' draw the score pots
+'@printPlayerScore 23,17,0,0
+'@printPlayerScore 10,12,1,0
+'@printPlayerScore 10,6,2,0
+'@printPlayerScore 22,0,2,0
+'@printPlayerScore 35,6,0,0
+'@printPlayerScore 35,12,1,1
+
+
+@POS 6,4: @Print &"WAITING FOR PLAYERS TO JOIN"
+@POS 3,25: @Print &"SPACE TO REFRESH OR S TO START"
+
+
 exit
 ENDIF
 
@@ -563,6 +567,9 @@ if moves$="F" then ? "F (Fold) "
  next a
 endif
 ? "****************************************";
+
+@DrawBufferEnd
+@ShowScreen
 endproc
 
 
@@ -934,8 +941,6 @@ PROC CycleColorTheme
   background_color(0)= colorThemeMap(i)
   background_color(1)= colorThemeMap(i)
   POKE 708, colorThemeMap(i+1)
-'poke 712,background_color(0)
-
   sound
 ENDPROC
 
@@ -950,7 +955,7 @@ PROC ResetScreen
   mset screen,40*26,0
   
   ' Draw the four black corners of the screen
-poke screen, 88:poke screen+39,89
+  poke screen, 88:poke screen+39,89
   poke screen+40*24, 90:poke screen+40*25-1,91
 ENDPROC
 
@@ -1107,50 +1112,96 @@ ENDPROC
 ' These routines print cards to the screen at the specified location
 
 Proc PrintCard _col _row _card
-IF _card=0  
-    @POS _col,_row:@PrintByte 28:@PrintByte 29:@PrintByte 30
-    @POS _col,_row+1:@PrintByte 63:@PrintByte 62:@PrintByte 64
-    @POS _col,_row+1:@PrintByte 63:@PrintByte 62:@PrintByte 64
-    @POS _col,_row+1:@PrintByte 59:@PrintByte 60:@PrintByte 61
-ElIF _card=1 
-    @POS _col,_row:@PrintByte 28:@PrintByte 29:@PrintByte 30
-    @POS _col,_row+1:@PrintByte 63:@PrintByte 66:@PrintByte 64
-    @POS _col,_row+1:@PrintByte 63:@PrintByte 67:@PrintByte 64
-    @POS _col,_row+1:@PrintByte 59:@PrintByte 60:@PrintByte 61
-ElIF _card=2 
-    @POS _col,_row:@PrintByte 28:@PrintByte 29:@PrintByte 30
-    @POS _col,_row+1:@PrintByte 63:@PrintByte 196:@PrintByte 64
-    @POS _col,_row+1:@PrintByte 63:@PrintByte 197:@PrintByte 64
-    @POS _col,_row+1:@PrintByte 59:@PrintByte 60:@PrintByte 61
-ElIF _card=3 
-    @POS _col,_row:@PrintByte 28:@PrintByte 29:@PrintByte 30
-    @POS _col,_row+1:@PrintByte 63:@PrintByte 68:@PrintByte 64
-    @POS _col,_row+1:@PrintByte 63:@PrintByte 70:@PrintByte 64
-    @POS _col,_row+1:@PrintByte 59:@PrintByte 60:@PrintByte 61
-ElIF _card=4 
-    @POS _col,_row:@PrintByte 28:@PrintByte 29:@PrintByte 30
-    @POS _col,_row+1:@PrintByte 63:@PrintByte 199:@PrintByte 64
-    @POS _col,_row+1:@PrintByte 63:@PrintByte 200:@PrintByte 64
-    @POS _col,_row+1:@PrintByte 59:@PrintByte 60:@PrintByte 61
-ElIF _card=5 
-    @POS _col,_row:@PrintByte 28:@PrintByte 29:@PrintByte 30
-    @POS _col,_row+1:@PrintByte 63:@PrintByte 73:@PrintByte 64
-    @POS _col,_row+1:@PrintByte 63:@PrintByte 70:@PrintByte 64
-    @POS _col,_row+1:@PrintByte 59:@PrintByte 60:@PrintByte 61
-ElIF _card=6 
-    @POS _col,_row:@PrintByte 28:@PrintByte 29:@PrintByte 30
-    @POS _col,_row+1:@PrintByte 63:@PrintByte 202:@PrintByte 64
-    @POS _col,_row+1:@PrintByte 63:@PrintByte 203:@PrintByte 64
-    @POS _col,_row+1:@PrintByte 59:@PrintByte 60:@PrintByte 61
-ElIF _card=7 
-    @POS _col,_row:@PrintByte 204:@PrintByte 205:@PrintByte 206
-    @POS _col,_row+1:@PrintByte 207:@PrintByte 208:@PrintByte 209
-    @POS _col,_row+1:@PrintByte 210:@PrintByte 211:@PrintByte 212
-    @POS _col,_row+1:@PrintByte 213:@PrintByte 214:@PrintByte 215
-ElIF _card=8 
-    @POS _col,_row:@Print &"abc"
-    @POS _col,_row+1:@Print &"def"
-    @POS _col,_row+1:@Print &"ghi"
-    @POS _col,_row+1:@Print &"jkl"
+x=_col:y=_row:card=_card
+IF card=0  
+    @POS x,y:@PrintByte 28:@PrintByte 29:@PrintByte 30
+    @POS x,y+1:@PrintByte 63:@PrintByte 62:@PrintByte 64
+    @POS x,y+2:@PrintByte 63:@PrintByte 62:@PrintByte 64
+    @POS x,y+3:@PrintByte 59:@PrintByte 60:@PrintByte 61
+ElIF card=1 
+    @POS x,y:@PrintByte 28:@PrintByte 29:@PrintByte 30
+    @POS x,y+1:@PrintByte 63:@PrintByte 66:@PrintByte 64
+    @POS x,y+2:@PrintByte 63:@PrintByte 67:@PrintByte 64
+    @POS x,y+3:@PrintByte 59:@PrintByte 60:@PrintByte 61
+ElIF card=2 
+    @POS x,y:@PrintByte 28:@PrintByte 29:@PrintByte 30
+    @POS x,y+1:@PrintByte 63:@PrintByte 196:@PrintByte 64
+    @POS x,y+2:@PrintByte 63:@PrintByte 197:@PrintByte 64
+    @POS x,y+3:@PrintByte 59:@PrintByte 60:@PrintByte 61
+ElIF card=3 
+    @POS x,y:@PrintByte 28:@PrintByte 29:@PrintByte 30
+   @POS x,y+1:@PrintByte 63:@PrintByte 68:@PrintByte 64
+    @POS x,y+2:@PrintByte 63:@PrintByte 70:@PrintByte 64
+    @POS x,y+3:@PrintByte 59:@PrintByte 60:@PrintByte 61
+ElIF card=4 
+    @POS x,y:@PrintByte 28:@PrintByte 29:@PrintByte 30
+    @POS x,y+1:@PrintByte 63:@PrintByte 199:@PrintByte 64
+    @POS x,y+2:@PrintByte 63:@PrintByte 200:@PrintByte 64
+    @POS x,y+3:@PrintByte 59:@PrintByte 60:@PrintByte 61
+ElIF card=5 
+    @POS x,y:@PrintByte 28:@PrintByte 29:@PrintByte 30
+   @POS x,y+1:@PrintByte 63:@PrintByte 73:@PrintByte 64
+    @POS x,y+2:@PrintByte 63:@PrintByte 70:@PrintByte 64
+    @POS x,y+3:@PrintByte 59:@PrintByte 60:@PrintByte 61
+ElIF card=6 
+    @POS x,y:@PrintByte 28:@PrintByte 29:@PrintByte 30
+    @POS x,y+1:@PrintByte 63:@PrintByte 202:@PrintByte 64
+    @POS x,y+2:@PrintByte 63:@PrintByte 203:@PrintByte 64
+    @POS x,y+3:@PrintByte 59:@PrintByte 60:@PrintByte 61
+ElIF card=7 
+    @POS x,y:@PrintByte 204:@PrintByte 205:@PrintByte 206
+    @POS x,y+1:@PrintByte 207:@PrintByte 208:@PrintByte 209
+    @POS x,y+2:@PrintByte 210:@PrintByte 211:@PrintByte 212
+    @POS x,y+3:@PrintByte 213:@PrintByte 214:@PrintByte 215
+ElIF card=8 
+   @POS x,y:@PrintByte 97:@PrintByte 98:@PrintByte 99
+    @POS x,y+1:@PrintByte 100:@PrintByte 101:@PrintByte 102
+    @POS x,y+2:@PrintByte 103:@PrintByte 104:@PrintByte 105
+    @POS x,y+3:@PrintByte 106:@PrintByte 107:@PrintByte 108
 endif
+ENDPROC
+
+proc printPlayerHand _col _row _numCards 
+x=_col:y=_row
+for i=1 to _numCards
+@POS (x+i)-1,y:@PrintByte 13:@PrintByte 14
+@POS (x+i)-1,y+1:@PrintByte 15:@PrintByte 27
+next i
+ENDPROC
+
+proc printPlayerScore _col _row _BlackCounters _WhiteCounters
+x=_col:y=_row:bc=_BlackCounters:wc=_WhiteCounters
+IF BC=0
+@POS x,y:@PrintByte 1:@PrintByte 2:@PrintByte 2:@PrintByte 3
+ELIF BC=1
+@POS x,y:@PrintByte 4:@PrintByte 2:@PrintByte 2:@PrintByte 3
+ELIF BC=2   
+@POS x,y:@PrintByte 5:@PrintByte 2:@PrintByte 2:@PrintByte 3
+ELIF BC=3                                               
+@POS x,y:@PrintByte 6:@PrintByte 2:@PrintByte 2:@PrintByte 3
+ENDIF
+
+IF WC=0
+@POS x+1,y:@PrintByte 2:@PrintByte 2:@PrintByte 3
+ELIF WC=1
+@POS x+1,y:@PrintByte 2:@PrintByte 2:@PrintByte 11
+ELIF WC=2   
+@POS x+1,y:@PrintByte 2:@PrintByte 7:@PrintByte 11
+ELIF WC=3                                               
+@POS x+1,y:@PrintByte 7:@PrintByte 7:@PrintByte 11
+ELIF WC=4
+@POS x+1,y:@PrintByte 7:@PrintByte 8:@PrintByte 11
+ELIF WC=5   
+@POS x+1,y:@PrintByte 8:@PrintByte 8:@PrintByte 11
+ELIF WC=6                                               
+@POS x+1,y:@PrintByte 8:@PrintByte 8:@PrintByte 12
+ELIF WC=7
+@POS x+1,y:@PrintByte 9:@PrintByte 8:@PrintByte 12
+ELIF WC=8   
+@POS x+1,y:@PrintByte 9:@PrintByte 9:@PrintByte 12
+ELIF WC=9                                               
+@POS x+1,y:@PrintByte 9:@PrintByte 10:@PrintByte 12
+ELIF WC=10                                               
+@POS x+1,y:@PrintByte 10:@PrintByte 10:@PrintByte 12
+ENDIF
 ENDPROC

@@ -205,8 +205,7 @@ colorTheme=-1
   @POS n+3,7:@Print &"PRESENTS"
   @POS n+2,8:@Print &"FUJI-LLAMA"
   @POS n-8,10:@Print &"A CARD GAME FOR UP TO 6 PLAYERS"
-  @POS n-8,11:@Print &"???????@@@@@@@@@"
-  @POS n-8,12:@PrintINV &"??????@@@@@@@@@"
+
   @PrintCard 0,13,0
   @PrintCard 4,13,1
   @PrintCard 8,13,2
@@ -217,6 +216,28 @@ colorTheme=-1
   @PrintCard 28,13,7
   @PrintCard 32,13,8
 
+@PrintPH 0,0,1
+
+@PrintPH 0,22,5
+
+@printPlayerScore 0,4,0,0
+@printPlayerScore 0,6,1,0
+@printPlayerScore 0,8,2,0
+@printPlayerScore 0,10,2,0
+
+@printPlayerScore 10,4,0,0
+@printPlayerScore 10,6,1,1
+@printPlayerScore 10,8,2,2
+@printPlayerScore 10,10,3,3
+@printPlayerScore 10,12,2,4
+@printPlayerScore 10,14,0,5
+
+
+@printPlayerScore 20,6,1,6
+@printPlayerScore 20,8,2,7
+@printPlayerScore 20,10,3,8
+@printPlayerScore 20,12,2,9
+@printPlayerScore 20,14,0,10
 
 
 Repeat
@@ -227,54 +248,99 @@ UNTIL K=27
 END
 
 Proc PrintCard _col _row _card
-IF _card=0  
-    @POS _col,_row:@PrintByte 28:@PrintByte 29:@PrintByte 30
-    @POS _col,_row+1:@PrintByte 63:@PrintByte 62:@PrintByte 64
-    @POS _col,_row+1:@PrintByte 63:@PrintByte 62:@PrintByte 64
-    @POS _col,_row+1:@PrintByte 59:@PrintByte 60:@PrintByte 61
-ElIF _card=1 
-    @POS _col,_row:@PrintByte 28:@PrintByte 29:@PrintByte 30
-    @POS _col,_row+1:@PrintByte 63:@PrintByte 66:@PrintByte 64
-    @POS _col,_row+1:@PrintByte 63:@PrintByte 67:@PrintByte 64
-    @POS _col,_row+1:@PrintByte 59:@PrintByte 60:@PrintByte 61
-ElIF _card=2 
-    @POS _col,_row:@PrintByte 28:@PrintByte 29:@PrintByte 30
-    @POS _col,_row+1:@PrintByte 63:@PrintByte 196:@PrintByte 64
-    @POS _col,_row+1:@PrintByte 63:@PrintByte 197:@PrintByte 64
-    @POS _col,_row+1:@PrintByte 59:@PrintByte 60:@PrintByte 61
-ElIF _card=3 
-    @POS _col,_row:@PrintByte 28:@PrintByte 29:@PrintByte 30
-    @POS _col,_row+1:@PrintByte 63:@PrintByte 68:@PrintByte 64
-    @POS _col,_row+1:@PrintByte 63:@PrintByte 70:@PrintByte 64
-    @POS _col,_row+1:@PrintByte 59:@PrintByte 60:@PrintByte 61
-ElIF _card=4 
-    @POS _col,_row:@PrintByte 28:@PrintByte 29:@PrintByte 30
-    @POS _col,_row+1:@PrintByte 63:@PrintByte 199:@PrintByte 64
-    @POS _col,_row+1:@PrintByte 63:@PrintByte 200:@PrintByte 64
-    @POS _col,_row+1:@PrintByte 59:@PrintByte 60:@PrintByte 61
-ElIF _card=5 
-    @POS _col,_row:@PrintByte 28:@PrintByte 29:@PrintByte 30
-    @POS _col,_row+1:@PrintByte 63:@PrintByte 73:@PrintByte 64
-    @POS _col,_row+1:@PrintByte 63:@PrintByte 70:@PrintByte 64
-    @POS _col,_row+1:@PrintByte 59:@PrintByte 60:@PrintByte 61
-ElIF _card=6 
-    @POS _col,_row:@PrintByte 28:@PrintByte 29:@PrintByte 30
-    @POS _col,_row+1:@PrintByte 63:@PrintByte 202:@PrintByte 64
-    @POS _col,_row+1:@PrintByte 63:@PrintByte 203:@PrintByte 64
-    @POS _col,_row+1:@PrintByte 59:@PrintByte 60:@PrintByte 61
-ElIF _card=7 
-    @POS _col,_row:@PrintByte 204:@PrintByte 205:@PrintByte 206
-    @POS _col,_row+1:@PrintByte 207:@PrintByte 208:@PrintByte 209
-    @POS _col,_row+1:@PrintByte 210:@PrintByte 211:@PrintByte 212
-    @POS _col,_row+1:@PrintByte 213:@PrintByte 214:@PrintByte 215
-ElIF _card=8 
-    @POS _col,_row:@Print &"abc"
-    @POS _col,_row+1:@Print &"def"
-    @POS _col,_row+1:@Print &"ghi"
-    @POS _col,_row+1:@Print &"jkl"
+x=_col:y=_row:card=_card
+IF card=0  
+    @POS x,y:@PrintByte 28:@PrintByte 29:@PrintByte 30
+    @POS x,y+1:@PrintByte 63:@PrintByte 62:@PrintByte 64
+    @POS x,y+2:@PrintByte 63:@PrintByte 62:@PrintByte 64
+    @POS x,y+3:@PrintByte 59:@PrintByte 60:@PrintByte 61
+ElIF card=1 
+    @POS x,y:@PrintByte 28:@PrintByte 29:@PrintByte 30
+    @POS x,y+1:@PrintByte 63:@PrintByte 66:@PrintByte 64
+    @POS x,y+2:@PrintByte 63:@PrintByte 67:@PrintByte 64
+    @POS x,y+3:@PrintByte 59:@PrintByte 60:@PrintByte 61
+ElIF card=2 
+    @POS x,y:@PrintByte 28:@PrintByte 29:@PrintByte 30
+    @POS x,y+1:@PrintByte 63:@PrintByte 196:@PrintByte 64
+    @POS x,y+2:@PrintByte 63:@PrintByte 197:@PrintByte 64
+    @POS x,y+3:@PrintByte 59:@PrintByte 60:@PrintByte 61
+ElIF card=3 
+    @POS x,y:@PrintByte 28:@PrintByte 29:@PrintByte 30
+   @POS x,y+1:@PrintByte 63:@PrintByte 68:@PrintByte 64
+    @POS x,y+2:@PrintByte 63:@PrintByte 70:@PrintByte 64
+    @POS x,y+3:@PrintByte 59:@PrintByte 60:@PrintByte 61
+ElIF card=4 
+    @POS x,y:@PrintByte 28:@PrintByte 29:@PrintByte 30
+    @POS x,y+1:@PrintByte 63:@PrintByte 199:@PrintByte 64
+    @POS x,y+2:@PrintByte 63:@PrintByte 200:@PrintByte 64
+    @POS x,y+3:@PrintByte 59:@PrintByte 60:@PrintByte 61
+ElIF card=5 
+    @POS x,y:@PrintByte 28:@PrintByte 29:@PrintByte 30
+   @POS x,y+1:@PrintByte 63:@PrintByte 73:@PrintByte 64
+    @POS x,y+2:@PrintByte 63:@PrintByte 70:@PrintByte 64
+    @POS x,y+3:@PrintByte 59:@PrintByte 60:@PrintByte 61
+ElIF card=6 
+    @POS x,y:@PrintByte 28:@PrintByte 29:@PrintByte 30
+    @POS x,y+1:@PrintByte 63:@PrintByte 202:@PrintByte 64
+    @POS x,y+2:@PrintByte 63:@PrintByte 203:@PrintByte 64
+    @POS x,y+3:@PrintByte 59:@PrintByte 60:@PrintByte 61
+ElIF card=7 
+    @POS x,y:@PrintByte 204:@PrintByte 205:@PrintByte 206
+    @POS x,y+1:@PrintByte 207:@PrintByte 208:@PrintByte 209
+    @POS x,y+2:@PrintByte 210:@PrintByte 211:@PrintByte 212
+    @POS x,y+3:@PrintByte 213:@PrintByte 214:@PrintByte 215
+ElIF card=8 
+   @POS x,y:@PrintByte 97:@PrintByte 98:@PrintByte 99
+    @POS x,y+1:@PrintByte 100:@PrintByte 101:@PrintByte 102
+    @POS x,y+2:@PrintByte 103:@PrintByte 104:@PrintByte 105
+    @POS x,y+3:@PrintByte 106:@PrintByte 107:@PrintByte 108
 endif
 ENDPROC
 
+proc printPh _col _row _numCards 
+x=_col:y=_row
+for i=1 to _numCards
+@POS (x+i)-1,y:@PrintByte 13:@PrintByte 14
+@POS (x+i)-1,y+1:@PrintByte 15:@PrintByte 27
+next i
+ENDPROC
+
+proc printPlayerScore _col _row _BlackCounters _WhiteCounters
+x=_col:y=_row:bc=_BlackCounters:wc=_WhiteCounters
+IF BC=0
+@POS x,y:@PrintByte 1:@PrintByte 2:@PrintByte 2:@PrintByte 3
+ELIF BC=1
+@POS x,y:@PrintByte 4:@PrintByte 2:@PrintByte 2:@PrintByte 3
+ELIF BC=2   
+@POS x,y:@PrintByte 5:@PrintByte 2:@PrintByte 2:@PrintByte 3
+ELIF BC=3                                               
+@POS x,y:@PrintByte 6:@PrintByte 2:@PrintByte 2:@PrintByte 3
+ENDIF
+
+IF WC=0
+@POS x+1,y:@PrintByte 2:@PrintByte 2:@PrintByte 3
+ELIF WC=1
+@POS x+1,y:@PrintByte 2:@PrintByte 2:@PrintByte 11
+ELIF WC=2   
+@POS x+1,y:@PrintByte 2:@PrintByte 7:@PrintByte 11
+ELIF WC=3                                               
+@POS x+1,y:@PrintByte 7:@PrintByte 7:@PrintByte 11
+ELIF WC=4
+@POS x+1,y:@PrintByte 7:@PrintByte 8:@PrintByte 11
+ELIF WC=5   
+@POS x+1,y:@PrintByte 8:@PrintByte 8:@PrintByte 11
+ELIF WC=6                                               
+@POS x+1,y:@PrintByte 8:@PrintByte 8:@PrintByte 12
+ELIF WC=7
+@POS x+1,y:@PrintByte 9:@PrintByte 8:@PrintByte 12
+ELIF WC=8   
+@POS x+1,y:@PrintByte 9:@PrintByte 9:@PrintByte 12
+ELIF WC=9                                               
+@POS x+1,y:@PrintByte 9:@PrintByte 10:@PrintByte 12
+ELIF WC=10                                               
+@POS x+1,y:@PrintByte 10:@PrintByte 10:@PrintByte 12
+ENDIF
+ENDPROC
 
 
 ' ============================================================================
