@@ -34,7 +34,7 @@ type GameTable struct {
 	CurPlayers int    `json:"p"` // human players
 	MaxPlayers int    `json:"m"` // human players
 	maxBots    int    // max bots allowed (internal use)
-	Status     string `json:"s"` // status of the table, e.g. "waiting", "playing"
+	Status     string `json:"s"` // status of the table, "waiting", "playing", "full", "empty","roundover","gameover"
 }
 
 var tables = []GameTable{
@@ -137,7 +137,7 @@ func getTables(c *gin.Context) {
 	c.JSON(http.StatusOK, tables)
 }
 
-// View the State retrieves the game state for a specific table or all if none specified (cheating view).
+// View the State retrieves the game state for a specific table or all if none specified (cheating/dev view).
 func viewGameState(c *gin.Context) {
 	tableIndex := -1
 	ok := false
@@ -238,7 +238,7 @@ func joinTable(c *gin.Context) {
 	case checkPlayerName(tableIndex, newplayerName):
 		c.JSON(http.StatusNotFound, "ERR(3) Sorry: "+newplayerName+" someone is already at table with that name ,please try a different table and or name") // Notify the player name is already taken
 		return
-	case gameStates[tableIndex].Table.Status == "playing":
+	case gameStates[tableIndex].Table.Status == "playing" || gameStates[tableIndex].Table.Status == "roundover" || gameStates[tableIndex].Table.Status == "gameover":
 		c.JSON(http.StatusNotFound, "ERR(4) Sorry: "+newplayerName+" table "+tables[tableIndex].Table+" has a game in progress, please try a different table") // Notify the player that the table is busy
 		return
 	case gameStates[tableIndex].Table.Status == "full":
@@ -420,12 +420,14 @@ func getGameState(c *gin.Context) {
 	response := struct {
 		DrawDeck       int         `json:"dd"`
 		DiscardPile    int         `json:"dp"`
+		TablesStatus   string      `json:"ts"`
 		LastMovePlayed string      `json:"lmp"` // Last move played
 		Players        interface{} `json:"pls"`
 	}{
 
 		DrawDeck:       gameStates[tableIndex].NumCards,
 		DiscardPile:    gameStates[tableIndex].Discard.Cardvalue,
+		TablesStatus:   gameStates[tableIndex].Table.Status,
 		LastMovePlayed: gameStates[tableIndex].LastMovePlayed,
 		Players:        playerStates,
 	}
@@ -753,6 +755,8 @@ func EndofRoundScore(tableIndex int) {
 	if gameStates[tableIndex].RoundOver {
 		fmt.Println("Scores have already been calculated for this round, skipping score calculation")
 		gameStates[tableIndex].LastMovePlayed = "(RE) Please view the results"
+		gameStates[tableIndex].Table.Status = "roundover"
+		tables[tableIndex].Status = gameStates[tableIndex].Table.Status
 		return
 	}
 
@@ -803,7 +807,8 @@ func EndofRoundScore(tableIndex int) {
 	}
 	gameStates[tableIndex].LastMovePlayed = "(RE) Please view the results"
 	gameStates[tableIndex].RoundOver = true // Set the round over flag to true to prevent multiple score calculations
-
+	gameStates[tableIndex].Table.Status = "roundover"
+	tables[tableIndex].Status = gameStates[tableIndex].Table.Status
 }
 
 func getResults(c *gin.Context) {
