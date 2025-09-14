@@ -14,7 +14,9 @@ if dpeek(741)-$BC00<0
   dpoke 741, $BC00
 endif
 
-Dim  TableID$(6),TableName$(6),TableCurrentPlayers(6),TableMaxPlayers(6),TableStatus$(6)
+' --------- DIM all the string Arrays -------------------
+Dim TableID$(6),TableName$(6),PlayerName$(5),PlayerHand$(5),PlayerValidMoves$(5)
+
 ' **************************************************
 ' ***************** IMPORTANT NOTE *****************
 
@@ -31,7 +33,7 @@ i = (&responseBuffer+1023)/4096*4096 - &responseBuffer + 3071
 ' initialize some player array strings to use this available space
 j=0
 while i > 768
-  TableID$(j)="":TableName$(j)="":TableStatus$(j)=""
+  TableID$(j)="":TableName$(j)="":PlayerName$(j)=""
   i=i-768
   inc j
 wend
@@ -48,7 +50,7 @@ if i>0 then dim filler(i) BYTE
 dim screenBuffer(2303) BYTE
 
 ' Allocate 3 more strings, taking up 768 bytes 
-TableID$(j)="":TableName$(j)="":TableStatus$(j)=""
+TableID$(j)="":TableName$(j)="":PlayerName$(j)=""
 
 ' Now charBuffer will be aligned to a 1K boundary
 dim charBuffer(1023) BYTE
@@ -173,20 +175,20 @@ data byte = 16,16,16,85,16,16,16,0,
 data byte = 0,0,16,21,16,16,0,0,
 data byte = 16,32,168,169,168,168,32,16,
 data byte = 16,48,184,236,236,236,184,48,
-data byte = 0,40,170,170,174,174,40,0,
-data byte = 0,40,170,170,186,186,40,0,
+data byte = 0,0,0,0,15,15,12,12,
+data byte = 0,0,0,0,252,252,12,12,
 data byte = 0,0,0,0,0,32,32,128,
-data byte = 0,32,236,184,184,184,236,32,
+data byte = 12,12,12,12,15,15,0,0,
 data byte = 0,0,0,80,0,0,0,0,
 data byte = 10,47,191,181,183,183,183,183,
 data byte = 128,224,248,248,120,120,120,120,
 data byte = 183,183,183,183,181,191,47,10,
 data byte = 120,120,120,120,248,248,224,128,
-data byte = 0,40,138,138,130,170,170,40,
+data byte = 12,12,12,12,252,252,0,0,
 data byte = 0,8,8,32,32,32,128,128,
 data byte = 0,0,0,0,168,0,0,0,
 data byte = 12,12,12,12,255,255,0,0,
-data byte = 0,0,0,0,0,0,0,0
+data byte = 255,255,0,0,0,0,0,0
 
 ' DLI Colors 
 data background_color()B.=$0,0,0
@@ -206,23 +208,23 @@ BaseURL$="N:HTTP://192.168.68.100:8080"
 QUERY$=""$9B
 JSON$="/tables"
 dummy$=""
-' Initialize strings - this reserves their space in memory so NInput can write to them
+' Initialize strings and Arrays - this reserves their space in memory so NInput can write to them
+Dim TableCurrentPlayers(6),TableMaxPlayers(6),TableStatus(6),PlayerStatus(5),PlayerHandCount(5),PlayerWhiteCounters(5),PlayerBlackCounters(5),PlayerScore(5),PlayerRoundScore(5)
 for i=0 to 6
  TableID$(i)=""
  TableName$(i)=""
  TableCurrentPlayers(i)=0
  TableMaxPlayers(i)=0
- TableStatus$(i)=""
+ TableStatus(i)=0
 next i
 ok=0
 ' Player and table selection variables
-_TN=0
-_name$=""
+TableNumber=0
+myName$="SIMON" ' Default name will get this from App key when I learn how to do that
 gameover=0
 shown=0
 
 ' Game state variables
-Dim PlayerName$(5),PlayerStatus(5),PlayerHandCount(5),PlayerWhiteCounters(5),PlayerBlackCounters(5),PlayerScore(5),PlayerHand$(5),PlayerValidMoves$(5),PlayerMessage1$(5),PlayerMessage2$(5),PlayerRoundScore(5)
 Drawdeck=0
 DiscardTop=0
 LastMovePlayed$=""
@@ -236,16 +238,12 @@ for i=0 to 5
  PlayerScore(i)=0
  PlayerHand$(i)=""
  PlayerValidMoves$(i)=""
-  PlayerMessage1$(i)=""
-  PlayerMessage2$(i)=""
-  PlayerRoundScore(i)=0
+ PlayerRoundScore(i)=0
 next i
-moves$=""
+move$=""
 PlayerIndex=0
 ' Game Result variables
 MessageLine1$=""
-MessageLine2$=""
-MessageLine3$=""
 ' Error variable
 _ERR=0    
 ' Index variable for reading FujiNet JSON data
@@ -261,64 +259,46 @@ poke 65,0
 
 
 ' --------- Main program -----------------------------
+POKE 731,0 ' Turn on keyclick
+@InitScreen
 @TitleScreen
 ' Loop until the player has successfully joined a table
-Repeat
-do 
-  ' Draw the welcome screen and display the tables available to join
-  @tableSelection
-  ' Check if the player has joined a table, if not then exit
-  @checkErrors
-  ' If the player has joined a table, then exit the loop
-  if ok=1 then exit
-  GET K
-loop
+DO
+  Repeat
+    @tableSelection
+    @checkErrors
+  UNTIL OK=1
+  
+  REPEAT
+    @readGameState
+    @DrawGameState
+    @ReadKeyPresses
+  UNTIL tableStatus(tablenumber)=3
+  REPEAT
+    @readGameState
+    @DrawGameState
+    @ReadKeyPresses
+  UNTIL tableStatus(tablenumber)=4
+LOOP
 
-REPEAT
- @readGameState
- if LastMovePlayed$[1,4]="(RE)"
-  if shown=0 
-    @ShowResults
-    shown=1
-  endif
-  if gameover=1 then exit
- elif LastMovePlayed$<>PreviousLastMovePlayed$
-  @DrawGameState
-  PreviousLastMovePlayed$=LastMovePlayed$
- endif
- K=0
- if PlayerStatus(PlayerIndex)=1 or LastMovePlayed$[1,4]="Wait" then GET K  
- if K=68 or K=67 or K=78 or K=70 
-  moves$=CHR$(K)
-  @playMove 
- endif
- if K=83 then @StartGame
- if k=32 then PreviousLastMovePlayed$=""
-UNTIL K=27
-
-UNTIL K=27
-' all done for now exit the program
-NCLOSE UNIT ' Close encase it's still open
-' Exit the program
-END
+@QuitGame
 
 ' --------- End of Main program ----------------------
 
+' MY ROUTINES
 PROC TitleScreen
-  @InitScreen
-  @ShowScreen
-
- N=13
-  @POS N,1: @Print &"      m"
-  @POS n,2: @Print &"     mpm"
-  @POS n,3: @Print &"FUJIopqpvNET"
-  @POS n,4: @Print &"     nmpv"
-  @POS n,5: @Print &"      nmm"
-  @POS n+3,7:@Print &"PRESENTS"
-  @POS n+2,8:@Print &"FUJI-LLAMA"
-  @POS n-8,10:@Print &"A CARD GAME FOR UP TO 6 PLAYERS"
-  
-
+  @ClearKeyQueue
+  @EnableDoubleBuffer
+  @ResetScreen
+  X=13
+  @POS X,1: @Print &"      m"
+  @POS X,2: @Print &"     mpm"
+  @POS X,3: @Print &"FUJIopqpvNET"
+  @POS X,4: @Print &"     nmpv"
+  @POS X,5: @Print &"      nmm"
+  @POS X+3,7:@Print &"PRESENTS"
+  @POS X+2,8:@Print &"FUJI-LLAMA"
+  @POS X-8,10:@Print &"A CARD GAME FOR UP TO 6 PLAYERS"
   @PrintCard 5,13,1
   @PrintCard 9,13,2
   @PrintCard 13,13,3
@@ -327,57 +307,59 @@ PROC TitleScreen
   @PrintCard 25,13,6
   @PrintCard 29,13,7
   @PrintCard 33,13,8
-
-
-  Repeat ' wait for player to press C to change color theme or any other key to continue
-  Get K
-  if K=67 
-  @CycleColorTheme
-  K=0
-  endif
+  X=(32-len(MyName$))/2
+  @POS X,18:@Print &"WELCOME ":@Print &MyName$
+  @POS 7,20:@Print &"PRESS ANY KEY TO CONTINUE"
+  @POS 5,25:@Print &"H-HELP C-COLOR N-NAME Q-QUIT"
+  @DrawBufferEnd
+  @ShowScreen
+  Repeat 
+  GET K
+  if K=67 then @CycleColorTheme
+  if K=78 
+    @SetPlayerName
+    @TitleScreen
+  Elif K=72 
+    @DisplayHelpDialog
+    @TitleScreen
+  Elif K=81 
+    @AskSure 2 ' Ask to confirm leaving game table
+    @TitleScreen
+  ENDIF
   UNTIL K<>0
 ENDPROC
 
-' This procedure draws the table selection screen and displays the tables available to join
-PROC tableSelection
+PROC TableSelection
+  ' This procedure draws the table selection screen and displays the tables available to join
+  @ClearKeyQueue
   @EnableDoubleBuffer
   @ResetScreen
-  @DrawTheWelcomeScreen
+  @DrawTableSelection
   @DrawBufferEnd
   @ShowScreen
-
-
   JSON$="/tables"
   @CallFujiNet
-
-  ' Initialize reading the api response
   @NInputInit UNIT, &responseBuffer
-
-  'Convert table JSON into strings for display and slection use 
   INDEX=0
   do
   ' If the first read is empty, we reached the end
   @NInput &dummy$ : if len(dummy$) = 0 then exit
   @NInput &TableID$(INDEX)
   @NInput &dummy$ : @NInput &TableName$(INDEX)
-  @NInput &dummy$ : @NInput &TableStatus$(INDEX):TableCurrentPlayers(INDEX)=VAL(TableStatus$(INDEX))
-  @NInput &dummy$ : @NInput &TableStatus$(INDEX):TableMaxPlayers(INDEX)=VAL(TableStatus$(INDEX))
-  @NInput &dummy$ : @NInput &TableStatus$(INDEX)
-
+  @NInput &dummy$ : @NInput &dummy$:TableCurrentPlayers(INDEX)=VAL(dummy$)
+  @NInput &dummy$ : @NInput &dummy$:TableMaxPlayers(INDEX)=VAL(dummy$)
+  @NInput &dummy$ : @NInput &dummy$:TableStatus(INDEX)=VAL(dummy$)
   INC INDEX
   loop 
   @EnableDoubleBuffer 
   @ResetScreen
-  @DrawTheWelcomeScreen
-
-  'now display the data on the welcome page 
+  @DrawTableSelection
   X=5:Y=7
   for a=0 to 6
-
   @POS X,Y:@Print &STR$(A+1)
   @Print & ","
   @PrintUpper & TableName$(a)
-  @POS 30,Y:@PrintUpper &TableStatus$(a)[1,1]
+  @POS 30,Y:@PrintVal TableStatus(a)
   @POS 32,Y:@PrintVal TableCurrentPlayers(a)
   @POS 33,Y:@PrintUpper &"/"
   @POS 34,Y:@PrintVal TableMaxPlayers(a)
@@ -386,21 +368,31 @@ PROC tableSelection
 
   @DrawBufferEnd
   @ShowScreen
-  @POS 6,22: @Print &  "ENTER YOUR NAME"
+  
+  @POS 6,22: @Print & "PRESS A TABLE NUMBER TO JOIN"
+  @POS 5,25:@Print &"H-HELP C-COLOR N-NAME Q-QUIT"
 
-
-  GET K ' make name and table input code here 
-
-  @POS 5,22: @Print & "ENTER THE TABLE NUMBER TO JOIN"
-
-
-  _name$="SIMON" ' for testing only
-  _TN = 5 ' for testing only
-
+  TableNumber=0
+  REPEAT
+  GET K
+  if K=67 then @CycleColorTheme
+  if K=78 
+    @SetPlayerName
+    @TableSelection
+  Elif K=72 
+    @DisplayHelpDialog
+    @TableSelection
+  Elif K=81 
+    @AskSure 2 
+    @TableSelection
+  ENDIF
+  TableNumber=K-48 ' Convert ASCII to number
+  UNTIL TableNumber>0 and TableNumber<8
+  DEC TableNumber ' Convert to array index
   JSON$="/join?table="
-  JSON$=+TableID$(_TN-1) ' Join the table based on the name selected
+  JSON$=+TableID$(TableNumber) ' Join the table based on the number selected
   JSON$=+"&player="
-  JSON$=+_name$
+  JSON$=+MyName$
   @POS 5,22: @Print &    " CONNECTING TO TABLE          "                  
   @POS 3,25: @Print &    "PLEASE WAIT THIS MAY TAKE A MOMENT"
   @CallFujiNet ' Call the FujiNet API to join the table
@@ -408,14 +400,339 @@ PROC tableSelection
   @NInput &dummy$ ' Read the response from the FujiNet API
 ENDPROC
 
+PROC ReadKeyPresses
+  K=KEY()
+  if K=224 or K=225 or K=229 or k=231  or k=226 or k=228 or K=204 or K=199 OR K=197
+    @CheckVaildMove K
+    @ClearKeyQueue
+  Elif K=193 AND TableStatus(tablenumber)=2
+    @StartGame
+    @ClearKeyQueue
+  Elif K=237
+    @CycleColorTheme
+  Elif K=198
+    @DisplayHelpDialog
+  Elif K=255
+    @AskSure 1 
+  Elif K=208
+    @AskSure 2 
+  ENDIF
+  @POS 1,23:@PrintVal Time
+ENDPROC
 
-' Read the game state from the FujiNet API
-PROC readGameState
+PROC CheckVaildMove _move
+    KeyPressed=_move
+    sound 0, 220,10,5
+    pause 4
+    sound 0, 200,10,5
+    pause 2
+    sound
+  move$=""
+  @POS 1,22:@PrintVal KeyPressed
+  if playerStatus(PlayerIndex)<>1 then Exit
+  if KeyPressed=199 then move$="F"
+  if KeyPressed=197
+    for a=1 to len(PlayerValidMoves$(PlayerIndex))
+      if PlayerValidMoves$(PlayerIndex)[a,1]="D"
+       move$="D"
+    exit
+    endif
+    next a
+  endif
+  DATA Kvalue()=0,224,225,229,231,226,228,204
+  For a=1 to 7
+    if KeyPressed=Kvalue(a)
+      for b=1 to len(PlayerValidMoves$(PlayerIndex))
+      Dummy$=PlayerValidMoves$(PlayerIndex)[b,1]
+       @POS 1,1:@Print &Dummy$
+       @POS 1,2:@Print &STR$(a)
+        if Dummy$=STR$(a)
+          move$=STR$(a)
+          @POS 1,2:@Print &move$
+        ENDIF
+      next b
+    ENDIF
+  Next a
+
+  @POS 1,21:@Print &move$
+  if Move$<>"" then @PlayMove
+ENDPROC
+
+PROC ShowResults
+  JSON$="/results?table="
+  JSON$=+TableID$(TableNumber)
+  JSON$=+"&player="
+  JSON$=+MyName$
+  @CallFujiNet
+  @NInputInit UNIT, &responseBuffer
+  @NInput &dummy$
+  @checkErrors
+  if ok <>1 then Exit
+  @NInput &dummy$
+  MessageLine1$=dummy$
+  key$="" : value$=""
+  do ' Loop reading key/value pairs until we reach the Start of the Player Array
+  ' Get the next line of text from the api response as the key
+  @NInput &key$
+  ' An empty key means we reached the end of the response
+  if len(key$) = 0 then exit
+  ' Get the next line of text from the api response as the value
+  @NInput &value$
+  ' Depending on key, set appropriate variable to the value
+  if key$="msg2" then MessageLine2$=value$
+  if key$="msg3" 
+  MessageLine3$=value$
+  EXIT
+  ENDIF
+  loop 
+  @NInput &dummy$ ' Read the Start of the Player Array
+  INDEX=0
+  do ' Loop reading key/value pairs until we reach the Start of the Player Array
+  ' Get the next line of text from the api response as the key
+  @NInput &key$
+  
+  ' An empty key means we reached the end of the response
+  if len(key$) = 0 then exit
+
+  ' Get the next line of text from the api response as the value
+  @NInput &value$
+ 
+  ' Depending on key, set appropriate variable to the value
+  if key$="n" then PlayerName$(INDEX)=value$
+  if key$="ph" then PlayerHand$(INDEX)=value$   
+  if key$="rs" then PlayerRoundScore(INDEX)=VAL(value$)
+  if key$="s" 
+  PlayerScore(INDEX)=VAL(value$)
+  INC INDEX  ' If read last field of a Player Array, increment index and read next player
+  ENDIF
+  loop 
+  ' find the player index for the current player
+  for a=0 to 5
+  if PlayerName$(a)=MyName$
+  PlayerIndex=a
+  endif
+  Next a
+  ? "****************************************";
+  ? "        *** Fuji-Llama ***            "  
+  ? "****************************************";
+  ? "  ";tableName$(TableNumber);" - Player: ";MyName$
+
+  ? MessageLine1$
+  if MessageLine2$<>"" then ? MessageLine2$
+  if MessageLine3$<>"" 
+  ? MessageLine3$
+  gameover=1
+  ENDIF
+  ?  "****************************************";
+  for a=0 to 5
+ if PlayerName$(a)<>""
+  ? PlayerName$(a);"'s cards are ";PlayerHand$(a)
+ 
+  ? "----------------------------------------";
+  endif
+  Next a
+  ? "****************************************";
+  ? "<press space see the Leaderboard>"
+  GET K
+  ? "Name                         Round Score";
+  for a=0 to 5
+  if PlayerName$(a)<>""
+  ? PlayerName$(a);"          ";PlayerRoundScore(a);" ";PlayerScore(a)
+  endif
+  Next a
+  ? "****************************************";
+  ? "<press space to start new round>"
+  GET K
+ENDPROC
+
+PROC AskSure _type 
+  ' Ask the player if they really want to quit or leave
+  @ClearKeyQueue
+  @EnableDoubleBuffer
+  @drawborder 11,9,15,4,128
+  x=14:y=9
+  INC Y:@PrintAt x,y, &"ARE YOU SURE"
+  INC Y
+  INC Y:@PrintAt x,y, &"   Y: YES"
+  INC Y:@PrintAt x,y, &"   N: NO"
+  @DrawBufferEnd
+  @ShowScreen
+  do
+    GET K
+    if K=89 ' Y - yes quit
+      if _type=1 then @LeaveGame 
+      if _type=2 then @QuitGame
+      END
+    else
+      @ClearKeyQueue
+      exit
+    endif
+  loop
+ENDPROC
+
+PROC SetPlayerName 
+  @drawborder 11,9,16,3,128
+    @POS 13,10:@Print &"ENTER YOUR NAME"
+    cursor = $20
+    frame = 0
+    @POS 15,12:@Print &MyName$:@PrintByte cursor
+    ' Input box to capture player name and show blinking cursor
+    ' Ensure at least 1 character name  
+    do
+      if key()
+        get k
+        if k=$9B and len(myName$)>0 then exit
+        if k>96 then k=k-32
+        if k=94 and len(myName$)>0
+          myName$=myName$[1,len(myName$)-1]
+          @POS 15,12::@Print &myName$:@PrintByte $20:@PrintByte 0
+        endif
+        if ((k>=65 and k<=90) or (k>=48 and k<58)) and len(myName$)<10
+          myName$=+chr$(k)
+          @POS 15,12:@Print &MyName$:@PrintByte $20
+        endif 
+      endif
+
+      pause
+      inc frame
+      if frame=40
+        frame=0
+        if cursor = $20
+        cursor=$A0
+        else
+        Cursor = $20
+        endif
+        @POS 15+len(myName$),12:@PrintByte cursor
+      endif
+    loop
+
+  
+ENDPROC
+
+PROC DisplayHelpDialog 
+  @ClearKeyQueue
+  @EnableDoubleBuffer
+  @DrawBorder 9,5,19,13,0
+  X=13:Y=6
+  INC Y:@PrintAt x,y, &"Q: QUIT PROGRAM"
+  INC Y
+  INC Y:@PrintAt x,y, &"H: HOW TO PLAY"
+  INC Y
+  INC Y:@PrintAt x,y, &"C: TABLE COLOR"
+  INC Y
+  INC Y:@PrintAt x,y, &"L: LEAVE TABLE"
+  INC Y
+  INC Y:@PrintAt x,y, &"N: CHANGE NAME"
+  INC Y
+  INC Y:@PrintAt x,y, &"RETURN: RETURN"
+  
+  @DrawBufferEnd
+  Repeat 
+    GET K
+    if K=67 
+    @CycleColorTheme
+    K=0
+    Elif k=72 ' H - how to play
+      @ViewHowToPlay 
+      '@DisplayHelpDialog
+    Elif K=78 ' N - change name
+      @SetPlayerName 
+      @DisplayHelpDialog 
+    Elif K=76   ' L - leave table
+     @AskSure 1
+     @DisplayHelpDialog 
+    Elif K=81  ' Q - Quiting program 
+      @AskSure 2
+      @DisplayHelpDialog 
+    Endif
+
+
+    if k=27 or K=32 or K=155 or STRIG(0) then exit
+    @PrintAt 10,24, K
+  UNTIL K=155
+ENDPROC
+
+PROC ViewHowToPlay
+  ' This COULD retrieve from the server. Hard coded for now.
+  @EnableDoubleBuffer
+  @ResetScreen
+  @POS 10,1: @Print &"THE LLAMA COMMANDS YOU:" 
+  @PrintCard 1,0,7:@PrintCard 36,0,8
+  @POS 4,2: @PrintINV &"@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
+  y=2               
+  inc y:@PrintAt 6,y, &"GET RID OF YOUR POINTS TO WIN"
+  inc y:@PrintAt 1,y, &"PLAY ALL YOUR CARDS OR YOU EARN POINTS"
+  inc y:@PrintAt 2,y, &"IF YOU CAN NOT PLAY A CARD, YOU WILL"
+  inc y:@PrintAt 1,y, &"HAVE TO DECIDE EITHER, DO YOU FOLD, OR"
+  inc y:@PrintAt 6,y, &"DRAW A CARD WHICH HOPEFULLY" 
+  inc y:@PrintAt 10,y, &"YOU CAN PLAY LATER"
+  inc y:
+  inc y:@PrintAt 3,y, &"POINTS COME IN THE FORM OF TOKENS"
+  inc y:@PrintAt 8,y, &"BLACK ARE 10 POINTS AND"
+  inc y:@PrintAt 10,y, &"WHITE ARE 1 POINT"
+  inc y:
+  inc y:@PrintAt 2,y, &"YOU EARN TOKENS BY HAVING CARDS LEFT"
+  inc y:@PrintAt 4,y, &"IN YOUR HAND AT THE END OF A ROUND"
+  inc y:@PrintAt 5,y, &"BASED ON THEIR FACE VALUE BUT,"
+  inc y:
+  inc y:@PrintAt 11,y, &        "CUIDAO, LAS LLAMA"
+  inc y:@POS 11,y: @PrintINV&   "@@@@@@@@@@@@@@@@@@@"
+  inc y:@PrintAt 3,y, &"FOR THEY WILL GIVE YOU BLACK TOKENS"
+  inc y:
+  inc y:@PrintAt 4,y, &"IF YOU GET RID OF ALL YOUR CARDS"
+  inc y:@PrintAt 9,y, &"YOU CAN RETURN A TOKEN"
+  inc y:@PrintAt 7,25, &"PRESS ANY KEY FOR NEXT PAGE"
+  @DrawBufferEnd
+  @ShowScreen
+  GET K
+  @EnableDoubleBuffer
+  @ResetScreen
+   @POS 10,1: @Print &"THE LLAMA COMMANDS YOU:" 
+  @PrintCard 1,0,8:@PrintCard 36,0,7
+  @POS 4,2: @PrintINV &"@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
+  y=2                ' "12345678911112131415161718192021fffffffa"
+  inc y:@PrintAt 5,y, &"YOU START A ROUND WITH 6 CARDS"
+  inc y:@PrintAt 4,y, &"THE TOP CARD OF THE DISCARD PILE"
+  inc y:@PrintAt 2,y, &"DETERMINES WHICH CARD CAN BE PLAYED"
+  inc y
+  inc y:@PrintAt 1,y, &"ON YOUR TURN YOU CAN WHEN VAILD:"
+  inc y:@PrintAt 1,y, &"PLAY A CARD WITH THE SAME VALUE, OR"
+  inc y:@PrintAt 1,y, &"PLAY THE NEXT CARD IN SEQUENCE"
+  inc y:@PrintAt 1,y, &"USE KEYS 1-6 MATCHING YOUR CHOICE OF"
+  inc y:@PrintAt 1,y, &"CARD OR THE L KEY FOR THE LLAMA CARD"
+  inc y:@PrintAt 1,y, &"D KEY TO DRAW A CARD FROM DECK"
+  inc y:@PrintAt 1,y, &"F KEY TO FOLD/QUIT THE CURRENT ROUND"
+  inc y
+  inc y:@PrintAt 1,y, &"THE NEXT CARD IN SEQUENCE AFTER 6 IS"
+  inc y:@PrintAt 1,y, &"THE LLAMA AND THEN ITS BACK TO 1"
+  INC Y
+  inc y:@PrintAt 1,y, &"THE ROUND ENDS WHEN A PLAYER HAS PLAYED"
+  inc y:@PrintAt 1,y, &"ALL THEIR CARDS, THE DRAW DECK RUNS OUT"
+  inc y:@PrintAt 1,y, &"OR ALL PLAYERS HAVE FOLDED"
+  INC Y
+  inc y:@PrintAt 1,y, &"THE GAME ENDS WHEN A PLAYER REACHES 40"  
+  inc y:@PrintAt 1,y, &"POINTS, THE PLAYER WITH THE LOWEST"  
+  inc y:@PrintAt 1,y, &"POINTS WINS" 
+  inc y:@PrintAt 7,25, &"PRESS ANY KEY TO RETURN"
+  @DrawBufferEnd
+  @ShowScreen
+  GET K
+  
+  
+ENDPROC
+
+Proc LeaveGame
+ ' do whatever is needed to leave the current game table and return to table selection
+ @TableSelection
+endproc
+
+PROC ReadGameState
+ ' Read the game state from the FujiNet API
   ' ? "getting game state from FujiNet"
   JSON$="/state?table="
-  JSON$=+TableID$(_TN-1) 
+  JSON$=+TableID$(TableNumber) 
   JSON$=+"&player="
-  JSON$=+_name$
+  JSON$=+MyName$
   ' JSON$="/state?table=ai1&player=SIMON"
   @CallFujiNet ' Call the FujiNet API to join the table
   @NInputInit UNIT, &responseBuffer ' Initialize reading the api response
@@ -454,7 +771,7 @@ PROC readGameState
   if key$="nc" then PlayerHandCount(INDEX)=VAL(value$)
   if key$="wc" then PlayerWhiteCounters(INDEX)=VAL(value$)
   if key$="bc" then PlayerBlackCounters(INDEX)=VAL(value$)
-  if key$="ts" thenTableStatus$(INDEX)=value$
+  if key$="ts" then TableStatus(INDEX)=VAL(value$)
   if key$="ph" then PlayerHand$(INDEX)=value$   
   if key$="pvm" 
   PlayerValidMoves$(INDEX)=value$
@@ -464,15 +781,81 @@ PROC readGameState
   loop 
   ' find the player index for the current player
   for a=0 to 5
- if PlayerName$(a)=_name$
+ if PlayerName$(a)=MyName$
  PlayerIndex=a
  endif
   Next a
 ENDPROC
 
-' This procedure draws the Table section sreen with a blank table grid
-PROC DrawTheWelcomeScreen
-  @POS 10,2: @Print &"WELCOME TO FUJI-LLAMA"  
+PROC PlayMove 
+  JSON$="/move?table="
+  JSON$=+TableID$(TableNumber)
+  JSON$=+"&player="
+  JSON$=+MyName$
+  JSON$=+"&VM=" 
+  JSON$=+move$
+  @CallFujiNet
+ENDPROC
+
+PROC StartGame
+  JSON$="/start?table="
+  JSON$=+TableID$(TableNumber)
+  @CallFujiNet
+ENDPROC
+
+PROC CheckErrors
+  ' Check data returned from FujiNet to see if it was successful or not
+  ' and display appropriate message
+  ok = 1
+  if len(dummy$) > 0 then
+  @POS 0,0
+  _ERR=VAL(dummy$[5,1])
+  if _ERR=1 
+    ok = 0
+    @PrintUpper &" You need to specify a valid table"
+  elif _ERR=2 
+    ok = 0
+    @PrintUpper &" You need to supply a player name"
+    @PrintUpper &" to join a table"
+  elif _ERR=3 
+    ok = 0
+    @PrintUpper &"Sorry: ":@PrintUpper &MyName$:@PrintUpper &" someone is already"
+    @PrintUpper &"at table ":@PrintUpper &TableName$(TableNumber):@PrintUpper &"with that name,"
+    @PrintUpper &"please try a different"
+    @PrintUpper &"table and or name"
+  
+  elif _ERR=4 
+    ok = 0
+    @PrintUpper &"Sorry: ":@PrintUpper &MyName$:@PrintUpper &" table ":@PrintUpper &TableName$(TableNumber)
+    @PrintUpper &" has a game in progress,"
+    @PrintUpper &"please try a different table"
+  elif _ERR=5 
+    ok = 0
+    @PrintUpper &"Sorry: ":@PrintUpper &MyName$:@PrintUpper &" table ":@PrintUpper &TableName$(TableNumber)
+    @PrintUpper &" is full, please try a different table"
+  elif _ERR=6 
+    ok = 0
+    @PrintUpper &"Must specify both table and player name"
+ elif _ERR=7 
+    ok = 0
+    @PrintUpper &"Player not found at this table"
+  elif _ERR=8 
+    ok = 0
+    @PrintUpper &"Round is not over yet, no results available"
+  elif _ERR=9 
+    ok = 0
+    @PrintUpper &"No human players at this table"
+  else
+  ok = 1
+  endif
+ENDPROC
+
+' ============================================================================
+' Drawing ROUTINES
+' ============================================================================
+PROC DrawTableSelection
+  @POS (34-len(MyName$))/2,1: @Print &"HELLO ":@Print &MyName$
+  @POS 10,3: @Print &"WELCOME TO FUJI-LLAMA"  
   @PrintCard 2,3,7:@PrintCard 35,3,8
   @POS 5,4: @PrintINV &"@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
   @POS 5,5: @Print &"TABLE NAME":@POS 28,5: @Print &"PLAYERS"
@@ -487,7 +870,8 @@ PROC DrawTheWelcomeScreen
   @POS 5,21: @PrintINV &"@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
 ENDPROC
 
-PROC DrawGameState ' Draw the current game state on the screen
+PROC DrawGameState 
+  ' Draw the current game state on the screen
   @EnableDoubleBuffer
   @ResetScreen
   @POS 0,5: @PrintINV &"@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
@@ -502,8 +886,8 @@ PROC DrawGameState ' Draw the current game state on the screen
   @POS 15,16: @PrintByte 254:@POS 23,16: @PrintByte 254                 
   @DrawPlayers
   if LastMovePlayed$="Waiting for players to join"
-  @POS 6,4: @Print &"WAITING FOR PLAYERS TO JOIN"
-  @POS 5,25: @Print &"SPACE TO REFRESH OR S TO START"
+  @POS 7,3: @Print &"WAIT OTHER PLAYERS TO JOIN"
+  @POS 10,4: @Print &"OR PRESS S TO START" 
   @PrintCard 17,9,8 ' Draw Deck
   @PrintCard 20,9,0 ' Discard Pile
   @DrawBufferEnd
@@ -517,9 +901,11 @@ PROC DrawGameState ' Draw the current game state on the screen
   @PrintCard 17,9,0 ' Empty Draw Deck
   endif
   @PrintCard 20,9,DiscardTop ' Discard Pile
-  @POS 1,25: @PrintUpper & LastMovePlayed$
-  if PlayerStatus(PlayerIndex)=1 then @Print &", YOUR TURN NOW"
+  @POS 1,24: @PrintUpper & LastMovePlayed$[1,38]
+  @POS 5,25:@Print &"H-HELP C-COLOR L-LEAVE Q-QUIT"
   if PlayerStatus(PlayerIndex)=1 
+  @POS 1,24: @PrintUpper & LastMovePlayed$[1,23]
+  @Print &", YOUR TURN NOW"
   @printDrawButton 2,20
   @printFoldButton 37,20
   ENDIF
@@ -527,8 +913,142 @@ PROC DrawGameState ' Draw the current game state on the screen
   @ShowScreen
 ENDPROC
 
-' Draw the players around the table
+PROC PrintMainPlayerHand
+  if PlayerHandCount(PlayerIndex)<9
+  X=((36-(PlayerHandCount(PlayerIndex)*4))/2)+2
+  for a=1 to len(PlayerHand$(PlayerIndex))
+    card=VAL(PlayerHand$(PlayerIndex)[a,1])
+    @PrintCard X,19,card
+    X=X+4
+  next a
+  elif PlayerHandCount(PlayerIndex)<10 ' more than 8 cards so print cards closer together
+  X=((36-(PlayerHandCount(PlayerIndex)*3))/2)+2
+  for a=1 to len(PlayerHand$(PlayerIndex))
+    card=VAL(PlayerHand$(PlayerIndex)[a,1])
+    @PrintCard X,19,card
+    X=X+3
+ next a
+ else ' more than 10 cards so print even closer together
+  X=((36-(PlayerHandCount(PlayerIndex)*2)+1)/2)+2
+  for a=1 to len(PlayerHand$(PlayerIndex))
+    card=VAL(PlayerHand$(PlayerIndex)[a,1])
+    @PrintCard X,19,card
+    X=X+2
+ next a
+  Endif
+ENDPROC
+
+PROC PrintCard _col _row _card
+  x=_col:y=_row:card=_card
+  IF card=0  
+    @POS x,y:@PrintByte 28:@PrintByte 29:@PrintByte 30
+    @POS x,y+1:@PrintByte 62:@PrintByte 63:@PrintByte 64
+    @POS x,y+2:@PrintByte 62:@PrintByte 63:@PrintByte 64
+    @POS x,y+3:@PrintByte 59:@PrintByte 60:@PrintByte 61
+  ElIF card=1 
+    @POS x,y:@PrintByte 28:@PrintByte 29:@PrintByte 30
+    @POS x,y+1:@PrintByte 62:@PrintByte 66:@PrintByte 64
+    @POS x,y+2:@PrintByte 62:@PrintByte 67:@PrintByte 64
+    @POS x,y+3:@PrintByte 59:@PrintByte 60:@PrintByte 61
+    ElIF card=2 
+    @POS x,y:@PrintByte 28:@PrintByte 29:@PrintByte 30
+    @POS x,y+1:@PrintByte 62:@PrintByte 196:@PrintByte 64
+    @POS x,y+2:@PrintByte 62:@PrintByte 197:@PrintByte 64
+    @POS x,y+3:@PrintByte 59:@PrintByte 60:@PrintByte 61
+  ElIF card=3 
+    @POS x,y:@PrintByte 28:@PrintByte 29:@PrintByte 30
+   @POS x,y+1:@PrintByte 62:@PrintByte 68:@PrintByte 64
+    @POS x,y+2:@PrintByte 62:@PrintByte 70:@PrintByte 64
+    @POS x,y+3:@PrintByte 59:@PrintByte 60:@PrintByte 61
+  ElIF card=4 
+    @POS x,y:@PrintByte 28:@PrintByte 29:@PrintByte 30
+    @POS x,y+1:@PrintByte 62:@PrintByte 199:@PrintByte 64
+    @POS x,y+2:@PrintByte 62:@PrintByte 200:@PrintByte 64
+    @POS x,y+3:@PrintByte 59:@PrintByte 60:@PrintByte 61
+  ElIF card=5 
+    @POS x,y:@PrintByte 28:@PrintByte 29:@PrintByte 30
+   @POS x,y+1:@PrintByte 62:@PrintByte 73:@PrintByte 64
+    @POS x,y+2:@PrintByte 62:@PrintByte 70:@PrintByte 64
+    @POS x,y+3:@PrintByte 59:@PrintByte 60:@PrintByte 61
+  ElIF card=6 
+    @POS x,y:@PrintByte 28:@PrintByte 29:@PrintByte 30
+    @POS x,y+1:@PrintByte 62:@PrintByte 202:@PrintByte 64
+    @POS x,y+2:@PrintByte 62:@PrintByte 203:@PrintByte 64
+    @POS x,y+3:@PrintByte 59:@PrintByte 60:@PrintByte 61
+  ElIF card=7 
+    @POS x,y:@PrintByte 204:@PrintByte 205:@PrintByte 206
+    @POS x,y+1:@PrintByte 207:@PrintByte 208:@PrintByte 209
+    @POS x,y+2:@PrintByte 210:@PrintByte 211:@PrintByte 212
+    @POS x,y+3:@PrintByte 213:@PrintByte 214:@PrintByte 215
+  ElIF card=8 
+   @POS x,y:@PrintByte 97:@PrintByte 98:@PrintByte 99
+    @POS x,y+1:@PrintByte 100:@PrintByte 101:@PrintByte 102
+    @POS x,y+2:@PrintByte 103:@PrintByte 104:@PrintByte 105
+    @POS x,y+3:@PrintByte 106:@PrintByte 107:@PrintByte 108
+endif
+ENDPROC
+
+PROC PrintPlayerHand _col _row _numCards 
+  if _numCards=0 then exit
+  x=_col:y=_row
+  if _numCards>12 then _numCards=12
+  for i=1 to _numCards
+  @POS (x+i)-1,y:@PrintByte 13:@PrintByte 14
+  @POS (x+i)-1,y+1:@PrintByte 15:@PrintByte 27
+  next i
+ENDPROC
+
+PROC PrintPlayerScore _col _row _BlackCounters _WhiteCounters
+  x=_col:y=_row:bc=_BlackCounters:wc=_WhiteCounters
+  IF BC=0
+  @POS x,y:@PrintByte 1:@PrintByte 2:@PrintByte 2:@PrintByte 3
+  ELIF BC=1
+  @POS x,y:@PrintByte 4:@PrintByte 2:@PrintByte 2:@PrintByte 3
+  ELIF BC=2   
+  @POS x,y:@PrintByte 5:@PrintByte 2:@PrintByte 2:@PrintByte 3
+  ELIF BC=3                                               
+  @POS x,y:@PrintByte 6:@PrintByte 2:@PrintByte 2:@PrintByte 3
+  ENDIF
+
+  IF WC=0
+    @POS x+1,y:@PrintByte 2:@PrintByte 2:@PrintByte 3
+  ELIF WC=1
+    @POS x+1,y:@PrintByte 2:@PrintByte 2:@PrintByte 11
+  ELIF WC=2   
+    @POS x+1,y:@PrintByte 2:@PrintByte 7:@PrintByte 11
+  ELIF WC=3                                               
+    @POS x+1,y:@PrintByte 7:@PrintByte 7:@PrintByte 11
+  ELIF WC=4
+    @POS x+1,y:@PrintByte 7:@PrintByte 8:@PrintByte 11
+  ELIF WC=5   
+    @POS x+1,y:@PrintByte 8:@PrintByte 8:@PrintByte 11
+  ELIF WC=6                                               
+    @POS x+1,y:@PrintByte 8:@PrintByte 8:@PrintByte 12  
+  ELIF WC=7
+    @POS x+1,y:@PrintByte 9:@PrintByte 8:@PrintByte 12
+  ELIF WC=8   
+    @POS x+1,y:@PrintByte 9:@PrintByte 9:@PrintByte 12
+  ELIF WC=9                                               
+    @POS x+1,y:@PrintByte 9:@PrintByte 10:@PrintByte 12
+  ELIF WC=10                                               
+    @POS x+1,y:@PrintByte 10:@PrintByte 10:@PrintByte 12
+  ENDIF
+ENDPROC
+
+PROC PrintDrawButton _col _row 
+  x=_col:y=_row
+  @POS x,y:@PrintByte 247:@PrintByte 248
+  @POS x,y+1:@PrintByte 249:@PrintByte 250
+ENDPROC
+
+PROC PrintFoldButton _col _row 
+  x=_col:y=_row
+  @POS x,y:@PrintByte 141:@PrintByte 142
+  @POS x,y+1:@PrintByte 143:@PrintByte 155
+ENDPROC
+
 PROC DrawPlayers 
+  ' Draw the players around the table
   Xoffset=LEN(PlayerName$(PlayerIndex))
   if Xoffset>12 then Xoffset=12
   X=((36-(Xoffset+6))/2)+2
@@ -566,185 +1086,30 @@ PROC DrawPlayers
  if PlayerHandCount(playerIndex)>0 then @printMainPlayerHand
 ENDPROC
 
-PROC printMainPlayerHand
-  if PlayerHandCount(PlayerIndex)<9
-  X=((36-(PlayerHandCount(PlayerIndex)*4))/2)+2
-  for a=1 to len(PlayerHand$(PlayerIndex))
-    card=VAL(PlayerHand$(PlayerIndex)[a,1])
-    @PrintCard X,19,card
-    X=X+4
-  next a
-  elif PlayerHandCount(PlayerIndex)<10 ' more than 8 cards so print cards closer together
-  X=((36-(PlayerHandCount(PlayerIndex)*3))/2)+2
-  for a=1 to len(PlayerHand$(PlayerIndex))
-    card=VAL(PlayerHand$(PlayerIndex)[a,1])
-    @PrintCard X,19,card
-    X=X+3
- next a
- else ' more than 10 cards so print even closer together
-  X=((36-(PlayerHandCount(PlayerIndex)*2)+1)/2)+2
-  for a=1 to len(PlayerHand$(PlayerIndex))
-    card=VAL(PlayerHand$(PlayerIndex)[a,1])
-    @PrintCard X,19,card
-    X=X+2
- next a
-  Endif
-ENDPROC
-
-PROC playMove
-  shown=0
-  JSON$="/move?table="
-  JSON$=+TableID$(_TN-1)
-  JSON$=+"&player="
-  JSON$=+_name$
-  JSON$=+"&VM=" 
-  JSON$=+moves$
-  @CallFujiNet
-ENDPROC
-
-PROC StartGame
-  JSON$="/start?table="
-  JSON$=+TableID$(_TN-1)
-  @CallFujiNet
-ENDPROC
-
-PROC ShowResults
-  JSON$="/results?table="
-  JSON$=+TableID$(_TN-1)
-  JSON$=+"&player="
-  JSON$=+_name$
-  @CallFujiNet
-  @NInputInit UNIT, &responseBuffer
-  @NInput &dummy$
-  @checkErrors
-  if ok <>1 then Exit
-  @NInput &dummy$
-  MessageLine1$=dummy$
-  key$="" : value$=""
-  do ' Loop reading key/value pairs until we reach the Start of the Player Array
-  ' Get the next line of text from the api response as the key
-  @NInput &key$
-  ' An empty key means we reached the end of the response
-  if len(key$) = 0 then exit
-  ' Get the next line of text from the api response as the value
-  @NInput &value$
-  ' Depending on key, set appropriate variable to the value
-  if key$="msg2" then MessageLine2$=value$
-  if key$="msg3" 
-  MessageLine3$=value$
-  EXIT
-  ENDIF
-  loop 
-  @NInput &dummy$ ' Read the Start of the Player Array
-  INDEX=0
-  do ' Loop reading key/value pairs until we reach the Start of the Player Array
-  ' Get the next line of text from the api response as the key
-  @NInput &key$
+PROC DrawBorder _col _row _sizeX _sizeY _colour
+  _X=_col:_Y=_row:Xsize=_sizex:Ysize=_sizey:colour=_colour
+  @POS _X,_Y:@PrintByte 114+colour
+  For Xstep=_X+1 to _X+Xsize
+  @POS Xstep,_Y:@PrintByte 32+colour
+  Next Xstep
+  @POS Xstep,_Y:@PrintByte 115+colour
   
-  ' An empty key means we reached the end of the response
-  if len(key$) = 0 then exit
+  For Ystep=_Y+1 to _Y+Ysize
+  @POS _X,Ystep:@PrintByte 31+colour
+  For Xstep=_X+1 to _X+Xsize
+  @POS Xstep,Ystep:@PrintByte 0
+  Next Xstep
+  @POS Xstep,Ystep:@PrintByte 31+colour
+  Next Ystep
 
-  ' Get the next line of text from the api response as the value
-  @NInput &value$
- 
-  ' Depending on key, set appropriate variable to the value
-  if key$="n" then PlayerName$(INDEX)=value$
-  if key$="ph" then PlayerHand$(INDEX)=value$   
-  if key$="m1" then PlayerMessage1$(INDEX)=value$
-  if key$="m2" then PlayerMessage2$(INDEX)=value$
-  if key$="rs" then PlayerRoundScore(INDEX)=VAL(value$)
-  if key$="s" 
-  PlayerScore(INDEX)=VAL(value$)
-  INC INDEX  ' If read last field of a Player Array, increment index and read next player
-  ENDIF
-  loop 
-  ' find the player index for the current player
-  for a=0 to 5
-  if PlayerName$(a)=_name$
-  PlayerIndex=a
-  endif
-  Next a
-  ? "****************************************";
-  ? "        *** Fuji-Llama ***            "  
-  ? "****************************************";
-  ? "  ";tableName$(_TN-1);" - Player: ";_name$
-
-  ? MessageLine1$
-  if MessageLine2$<>"" then ? MessageLine2$
-  if MessageLine3$<>"" 
-  ? MessageLine3$
-  gameover=1
-  ENDIF
-  ?  "****************************************";
-  for a=0 to 5
- if PlayerName$(a)<>""
-  ? PlayerName$(a);"'s cards are ";PlayerHand$(a)
-  ? PlayerMessage1$(a)
-  ? PlayerMessage2$(a)
-  ? "----------------------------------------";
-  endif
-  Next a
-  ? "****************************************";
-  ? "<press space see the Leaderboard>"
-  GET K
-  ? "Name                         Round Score";
-  for a=0 to 5
-  if PlayerName$(a)<>""
-  ? PlayerName$(a);"          ";PlayerRoundScore(a);" ";PlayerScore(a)
-  endif
-  Next a
-  ? "****************************************";
-  ? "<press space to start new round>"
-  GET K
+  @POS _X,Ystep:@PrintByte 117+colour
+  For Xstep=_X+1 to _X+Xsize
+  @POS Xstep,Ystep:@PrintByte 32+colour
+  Next Xstep
+  @POS Xstep,Ystep:@PrintByte 123+colour
 ENDPROC
 
 
-' Check data returned from FujiNet to see if it was successful or not
-' and display appropriate message
-PROC checkErrors
-  ok = 1
-  if len(dummy$) > 0 then
-  @POS 0,0
-  _ERR=VAL(dummy$[5,1])
-  if _ERR=1 
-    ok = 0
-    @PrintUpper &" You need to specify a valid table"
-  elif _ERR=2 
-    ok = 0
-    @PrintUpper &" You need to supply a player name"
-    @PrintUpper &" to join a table"
-  elif _ERR=3 
-    ok = 0
-    @PrintUpper &"Sorry: ":@PrintUpper &_name$:@PrintUpper &" someone is already"
-    @PrintUpper &"at table ":@PrintUpper &TableName$(_TN-1):@PrintUpper &"with that name,"
-    @PrintUpper &"please try a different"
-    @PrintUpper &"table and or name"
-  
-  elif _ERR=4 
-    ok = 0
-    @PrintUpper &"Sorry: ":@PrintUpper &_name$:@PrintUpper &" table ":@PrintUpper &TableName$(_TN-1)
-    @PrintUpper &" has a game in progress,"
-    @PrintUpper &"please try a different table"
-  elif _ERR=5 
-    ok = 0
-    @PrintUpper &"Sorry: ":@PrintUpper &_name$:@PrintUpper &" table ":@PrintUpper &TableName$(_TN-1)
-    @PrintUpper &" is full, please try a different table"
-  elif _ERR=6 
-    ok = 0
-    @PrintUpper &"Must specify both table and player name"
- elif _ERR=7 
-    ok = 0
-    @PrintUpper &"Player not found at this table"
-  elif _ERR=8 
-    ok = 0
-    @PrintUpper &"Round is not over yet, no results available"
-  elif _ERR=9 
-    ok = 0
-    @PrintUpper &"No human players at this table"
-  else
-  ok = 1
-  endif
-ENDPROC
 
 '-------------------------------------------------------------
 ' PROCEDURES to get Json data and load into the Var Result
@@ -847,10 +1212,16 @@ PROC NInput __NI_stringPointer
   endif
 ENDPROC
 
+PROC QuitGame
+  @LeaveGame
+  ' Enable FujiNet Config to take over D1:
+  SIO $70, 1, $D9, $00, 0, $09, 0, 1,0
+  ' Reboot via assembly: JMP $E477     
+  i=usr(&""$4C$77$E4+1)
+ENDPROC
+
 ' ============================================================================
 ' Screen code from  Eric Carr lifted from 5 card stud
-' ============================================================================
-
 ' ============================================================================
 ' Init screen/graphics - leaves screen blank. ShowScreen must be called afer
 PROC InitScreen
@@ -933,7 +1304,7 @@ PROC InitScreen
 ENDPROC
 
 PROC CycleColorTheme
-  
+  K=0
   if colorTheme = -1
     colorTheme = 0
   else
@@ -941,7 +1312,6 @@ PROC CycleColorTheme
     sound 0, 220,10,5
     pause 4
     sound 0, 200,10,5
-    
     colorTheme = (colorTheme + 1) mod 4 
   endif
 
@@ -955,6 +1325,7 @@ PROC CycleColorTheme
   background_color(1)= colorThemeMap(i)
   POKE 708, colorThemeMap(i+1)
   sound
+  @ClearKeyQueue
 ENDPROC
 
 ' Call to show the screen, or occasionally to stop Atari attract/screensaver color mode from occuring
@@ -962,7 +1333,7 @@ PROC ShowScreen
   poke 77,0:pause:poke 559,46+16
 ENDPROC
 
-' Call to clear the screen to an empty table
+' Call to clear the screen and and draw the four corners
 PROC ResetScreen
   mset screen,40*26,0
   
@@ -970,13 +1341,6 @@ PROC ResetScreen
   poke screen, 88:poke screen+39,89
   poke screen+40*24, 90:poke screen+40*25-1,91
 ENDPROC
-
-' Reset the screen in a double buffered manner
-PROC ResetScreenBuffered
-  @EnableDoubleBuffer
-  @ResetScreen
-  @DrawBufferEnd
-endproc
 
 PROC DrawBuffer
   pause
@@ -1005,6 +1369,7 @@ ENDPROC
 PROC ClearKeyQueue
   ' Clear out any queued key presses
   while key() : get k:wend
+  K=0
 ENDPROC
 
 ' ============================================================================
@@ -1118,114 +1483,5 @@ PROC PrintByte _byte
 ENDPROC
 
 ' ============================================================================
-' CARD PRINTING ROUTINES
-' These routines print cards to the screen at the specified location
 
-PROC PrintCard _col _row _card
-  x=_col:y=_row:card=_card
-  IF card=0  
-    @POS x,y:@PrintByte 28:@PrintByte 29:@PrintByte 30
-    @POS x,y+1:@PrintByte 62:@PrintByte 63:@PrintByte 64
-    @POS x,y+2:@PrintByte 62:@PrintByte 63:@PrintByte 64
-    @POS x,y+3:@PrintByte 59:@PrintByte 60:@PrintByte 61
-  ElIF card=1 
-    @POS x,y:@PrintByte 28:@PrintByte 29:@PrintByte 30
-    @POS x,y+1:@PrintByte 62:@PrintByte 66:@PrintByte 64
-    @POS x,y+2:@PrintByte 62:@PrintByte 67:@PrintByte 64
-    @POS x,y+3:@PrintByte 59:@PrintByte 60:@PrintByte 61
-    ElIF card=2 
-    @POS x,y:@PrintByte 28:@PrintByte 29:@PrintByte 30
-    @POS x,y+1:@PrintByte 62:@PrintByte 196:@PrintByte 64
-    @POS x,y+2:@PrintByte 62:@PrintByte 197:@PrintByte 64
-    @POS x,y+3:@PrintByte 59:@PrintByte 60:@PrintByte 61
-  ElIF card=3 
-    @POS x,y:@PrintByte 28:@PrintByte 29:@PrintByte 30
-   @POS x,y+1:@PrintByte 62:@PrintByte 68:@PrintByte 64
-    @POS x,y+2:@PrintByte 62:@PrintByte 70:@PrintByte 64
-    @POS x,y+3:@PrintByte 59:@PrintByte 60:@PrintByte 61
-  ElIF card=4 
-    @POS x,y:@PrintByte 28:@PrintByte 29:@PrintByte 30
-    @POS x,y+1:@PrintByte 62:@PrintByte 199:@PrintByte 64
-    @POS x,y+2:@PrintByte 62:@PrintByte 200:@PrintByte 64
-    @POS x,y+3:@PrintByte 59:@PrintByte 60:@PrintByte 61
-  ElIF card=5 
-    @POS x,y:@PrintByte 28:@PrintByte 29:@PrintByte 30
-   @POS x,y+1:@PrintByte 62:@PrintByte 73:@PrintByte 64
-    @POS x,y+2:@PrintByte 62:@PrintByte 70:@PrintByte 64
-    @POS x,y+3:@PrintByte 59:@PrintByte 60:@PrintByte 61
-  ElIF card=6 
-    @POS x,y:@PrintByte 28:@PrintByte 29:@PrintByte 30
-    @POS x,y+1:@PrintByte 62:@PrintByte 202:@PrintByte 64
-    @POS x,y+2:@PrintByte 62:@PrintByte 203:@PrintByte 64
-    @POS x,y+3:@PrintByte 59:@PrintByte 60:@PrintByte 61
-  ElIF card=7 
-    @POS x,y:@PrintByte 204:@PrintByte 205:@PrintByte 206
-    @POS x,y+1:@PrintByte 207:@PrintByte 208:@PrintByte 209
-    @POS x,y+2:@PrintByte 210:@PrintByte 211:@PrintByte 212
-    @POS x,y+3:@PrintByte 213:@PrintByte 214:@PrintByte 215
-  ElIF card=8 
-   @POS x,y:@PrintByte 97:@PrintByte 98:@PrintByte 99
-    @POS x,y+1:@PrintByte 100:@PrintByte 101:@PrintByte 102
-    @POS x,y+2:@PrintByte 103:@PrintByte 104:@PrintByte 105
-    @POS x,y+3:@PrintByte 106:@PrintByte 107:@PrintByte 108
-endif
-ENDPROC
 
-PROC printPlayerHand _col _row _numCards 
-  if _numCards=0 then exit
-  x=_col:y=_row
-  if _numCards>12 then _numCards=12
-  for i=1 to _numCards
-  @POS (x+i)-1,y:@PrintByte 13:@PrintByte 14
-  @POS (x+i)-1,y+1:@PrintByte 15:@PrintByte 27
-  next i
-ENDPROC
-
-PROC printPlayerScore _col _row _BlackCounters _WhiteCounters
-  x=_col:y=_row:bc=_BlackCounters:wc=_WhiteCounters
-  IF BC=0
-  @POS x,y:@PrintByte 1:@PrintByte 2:@PrintByte 2:@PrintByte 3
-  ELIF BC=1
-  @POS x,y:@PrintByte 4:@PrintByte 2:@PrintByte 2:@PrintByte 3
-  ELIF BC=2   
-  @POS x,y:@PrintByte 5:@PrintByte 2:@PrintByte 2:@PrintByte 3
-  ELIF BC=3                                               
-  @POS x,y:@PrintByte 6:@PrintByte 2:@PrintByte 2:@PrintByte 3
-  ENDIF
-
-  IF WC=0
-    @POS x+1,y:@PrintByte 2:@PrintByte 2:@PrintByte 3
-  ELIF WC=1
-    @POS x+1,y:@PrintByte 2:@PrintByte 2:@PrintByte 11
-  ELIF WC=2   
-    @POS x+1,y:@PrintByte 2:@PrintByte 7:@PrintByte 11
-  ELIF WC=3                                               
-    @POS x+1,y:@PrintByte 7:@PrintByte 7:@PrintByte 11
-  ELIF WC=4
-    @POS x+1,y:@PrintByte 7:@PrintByte 8:@PrintByte 11
-  ELIF WC=5   
-    @POS x+1,y:@PrintByte 8:@PrintByte 8:@PrintByte 11
-  ELIF WC=6                                               
-    @POS x+1,y:@PrintByte 8:@PrintByte 8:@PrintByte 12  
-  ELIF WC=7
-    @POS x+1,y:@PrintByte 9:@PrintByte 8:@PrintByte 12
-  ELIF WC=8   
-    @POS x+1,y:@PrintByte 9:@PrintByte 9:@PrintByte 12
-  ELIF WC=9                                               
-    @POS x+1,y:@PrintByte 9:@PrintByte 10:@PrintByte 12
-  ELIF WC=10                                               
-    @POS x+1,y:@PrintByte 10:@PrintByte 10:@PrintByte 12
-  ENDIF
-ENDPROC
-
-PROC printDrawButton _col _row 
-  x=_col:y=_row
-  @POS x,y:@PrintByte 247:@PrintByte 248
-  @POS x,y+1:@PrintByte 249:@PrintByte 250
-ENDPROC
-
-PROC printFoldButton _col _row 
-  x=_col:y=_row
-  @POS x,y:@PrintByte 141:@PrintByte 142
-  @POS x,y+1:@PrintByte 143:@PrintByte 155
-ENDPROC

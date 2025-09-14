@@ -47,23 +47,24 @@ dim charBuffer(1023) BYTE
 DIM Screen
 
 
+
 ' ==========================================================
 ' DATA - Character Fonts
 ' Custom character set for FujiLlama - 128 characters, 8 bytes each
 ' Size: 1024 bytes
 data font() byte = 0,0,0,0,0,0,0,0,
-data byte = 64,64,64,64,64,64,64,85,
+data byte = 0,0,64,64,64,64,64,85,
 data byte = 0,0,0,0,0,0,0,85,
-data byte = 1,1,1,1,1,1,1,85,
-data byte = 64,64,64,64,64,64,76,85,
-data byte = 64,64,64,64,76,64,76,85,
-data byte = 64,64,76,64,76,64,76,85,
+data byte = 0,0,1,1,1,1,1,85,
+data byte = 0,0,64,64,64,64,76,85,
+data byte = 0,0,64,64,76,64,76,85,
+data byte = 0,0,76,64,76,64,76,85,
 data byte = 0,0,0,0,0,0,32,85,
 data byte = 0,0,0,0,32,0,32,85,
 data byte = 0,0,32,0,32,0,32,85,
 data byte = 32,0,32,0,32,0,32,85,
-data byte = 1,1,1,1,1,1,33,85,
-data byte = 1,1,1,1,33,1,33,85,
+data byte = 0,0,1,1,1,1,33,85,
+data byte = 0,0,1,1,33,1,33,85,
 data byte = 10,47,191,181,183,183,183,181,
 data byte = 128,224,248,120,248,248,248,248,
 data byte = 183,183,183,183,183,191,47,10,
@@ -113,8 +114,8 @@ data byte = 0,168,8,32,32,128,128,168,
 data byte = 106,106,106,106,26,26,21,5,
 data byte = 170,170,170,170,170,170,85,85,
 data byte = 164,164,164,164,148,144,80,64,
-data byte = 170,170,170,170,170,170,170,170,
 data byte = 106,106,106,106,106,106,106,106,
+data byte = 170,170,170,170,170,170,170,170,
 data byte = 164,164,164,164,164,164,164,164,
 data byte = 165,149,154,154,106,106,106,106,
 data byte = 170,254,254,254,190,190,190,190,
@@ -144,9 +145,9 @@ data byte = 255,63,15,15,3,3,3,0,
 data byte = 0,192,192,192,240,240,252,255,
 data byte = 0,3,3,3,15,15,63,255,
 data byte = 255,252,240,240,192,192,192,0,
-data byte = 0,0,0,0,0,0,0,0,
-data byte = 0,0,0,0,0,0,0,0,
-data byte = 0,0,0,0,0,0,0,0,
+data byte = 12,12,12,12,252,252,12,12,
+data byte = 12,12,12,12,15,15,12,12,
+data byte = 0,0,0,0,255,255,12,12,
 data byte = 0,48,116,220,220,220,116,48,
 data byte = 5,21,31,31,126,126,126,126,
 data byte = 85,85,255,239,238,238,238,238,
@@ -165,20 +166,20 @@ data byte = 16,16,16,85,16,16,16,0,
 data byte = 0,0,16,21,16,16,0,0,
 data byte = 16,32,168,169,168,168,32,16,
 data byte = 16,48,184,236,236,236,184,48,
-data byte = 0,40,170,170,174,174,40,0,
-data byte = 0,40,170,170,186,186,40,0,
+data byte = 0,0,0,0,15,15,12,12,
+data byte = 0,0,0,0,252,252,12,12,
 data byte = 0,0,0,0,0,32,32,128,
-data byte = 0,32,236,184,184,184,236,32,
+data byte = 12,12,12,12,15,15,0,0,
 data byte = 0,0,0,80,0,0,0,0,
-data byte = 0,148,164,164,164,164,164,148,
-data byte = 0,124,92,92,92,92,92,124,
-data byte = 0,0,0,32,24,20,28,48,
-data byte = 0,0,0,32,144,80,208,48,
-data byte = 0,40,138,138,130,170,170,40,
+data byte = 10,47,191,181,183,183,183,183,
+data byte = 128,224,248,248,120,120,120,120,
+data byte = 183,183,183,183,181,191,47,10,
+data byte = 120,120,120,120,248,248,224,128,
+data byte = 12,12,12,12,252,252,0,0,
 data byte = 0,8,8,32,32,32,128,128,
 data byte = 0,0,0,0,168,0,0,0,
-data byte = 0,0,0,0,0,0,0,0,
-data byte = 0,0,0,0,0,0,0,0
+data byte = 12,12,12,12,255,255,0,0,
+data byte = 255,255,0,0,0,0,0,0
 
 ' DLI Colors 
 data background_color()B.=$0,0,0
@@ -190,9 +191,15 @@ DATA colorThemeMap()      =  $B4,$88,  $84,$08, $22,$28, $04,$08,' NTSC
 DATA                      =  $A4,$78,  $74,$08, $12,$18, $04,$08 ' PAL 
 colorTheme=-1
 
-
+myName$=""
 
 ' --------- Main program -----------------------------
+
+
+' SIO command to $70 command 'S', DSTATS $40, DBYT $04, DBUF 
+
+
+
 @InitScreen
 @ShowScreen
 
@@ -239,7 +246,47 @@ colorTheme=-1
 @printPlayerScore 20,12,2,9
 @printPlayerScore 20,14,0,10
 
+@DrawBorder 3,3,25,15,128
 
+ if len(myName$)=0
+    @POS 13,15:@Print &"ENTER YOUR NAME"
+
+    @POS 14,17:@Print &";@@@@@@@@@@<"
+    @POS 14,18:@Print &"?          "$BF
+    @POS 14,19:@Print &"=":@PrintInv &"@@@@@@@@@@>"
+
+    cursor = $76
+    frame = 0
+
+    @POS 16,18:@Print &MyName$:@PrintByte cursor
+    
+    ' Input box to capture player name and show blinking cursor
+    ' Ensure at least 1 character name  
+    do
+      if key()
+        get k
+        if k=$9B and len(myName$)>0 then exit
+        if k>96 then k=k-32
+        if k=94 and len(myName$)>0
+          myName$=myName$[1,len(myName$)-1]
+          @POS 16,18::@Print &myName$:@PrintByte $76:@PrintByte 0
+        endif
+        
+        if (k=32 or (k>=65 and k<=90) or (k>=48 and k<58)) and len(myName$)<8
+          myName$=+chr$(k)
+          @POS 16,18:@Print &MyName$:@PrintByte $76
+        endif 
+      endif
+
+      pause
+      inc frame
+      if frame=40
+        frame=0
+        cursor = $76 + (cursor=$76)
+        @POS 16+len(myName$),18:@PrintByte cursor
+      endif
+    loop
+endif
 
 Repeat
 @CycleColorTheme
@@ -247,6 +294,36 @@ Get K
 UNTIL K=27
 
 END
+
+PROC DrawBorder _col _row _sizeX _sizeY _colour
+  X=_col:Y=_row:Xsize=_sizex:Ysize=_sizey:colour=_colour
+  @POS X,Y:@PrintByte 114+colour
+  For Xstep=X+1 to X+Xsize
+  @POS Xstep,Y:@PrintByte 32+colour
+  Next Xstep
+  @POS Xstep,Y:@PrintByte 115+colour
+  
+  For Ystep=Y+1 to Y+15
+  @POS X,Ystep:@PrintByte 31+colour
+  For Xstep=X+1 to X+Xsize
+  @POS Xstep,Ystep:@PrintByte 0
+  Next Xstep
+  @POS Xstep,Ystep:@PrintByte 31+colour
+  Next Ystep
+
+  @POS X,Ystep:@PrintByte 117+colour
+  For Xstep=X+1 to X+Xsize
+  @POS Xstep,Ystep:@PrintByte 32+colour
+  Next Xstep
+  @POS Xstep,Ystep:@PrintByte 123+colour
+ENDPROC
+
+
+
+
+
+
+
 
 Proc PrintCard _col _row _card
 x=_col:y=_row:card=_card
