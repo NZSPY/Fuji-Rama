@@ -247,46 +247,10 @@ myName$=""
 @printPlayerScore 20,14,0,10
 
 @DrawBorder 3,3,25,15,128
-
- if len(myName$)=0
-    @POS 13,15:@Print &"ENTER YOUR NAME"
-
-    @POS 14,17:@Print &";@@@@@@@@@@<"
-    @POS 14,18:@Print &"?          "$BF
-    @POS 14,19:@Print &"=":@PrintInv &"@@@@@@@@@@>"
-
-    cursor = $76
-    frame = 0
-
-    @POS 16,18:@Print &MyName$:@PrintByte cursor
-    
-    ' Input box to capture player name and show blinking cursor
-    ' Ensure at least 1 character name  
-    do
-      if key()
-        get k
-        if k=$9B and len(myName$)>0 then exit
-        if k>96 then k=k-32
-        if k=94 and len(myName$)>0
-          myName$=myName$[1,len(myName$)-1]
-          @POS 16,18::@Print &myName$:@PrintByte $76:@PrintByte 0
-        endif
-        
-        if (k=32 or (k>=65 and k<=90) or (k>=48 and k<58)) and len(myName$)<8
-          myName$=+chr$(k)
-          @POS 16,18:@Print &MyName$:@PrintByte $76
-        endif 
-      endif
-
-      pause
-      inc frame
-      if frame=40
-        frame=0
-        cursor = $76 + (cursor=$76)
-        @POS 16+len(myName$),18:@PrintByte cursor
-      endif
-    loop
-endif
+Repeat
+K=key()
+@POS 1,5:@PrintVal K
+UNTIL K=227
 
 Repeat
 @CycleColorTheme

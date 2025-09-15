@@ -209,7 +209,7 @@ QUERY$=""$9B
 JSON$="/tables"
 dummy$=""
 ' Initialize strings and Arrays - this reserves their space in memory so NInput can write to them
-Dim TableCurrentPlayers(6),TableMaxPlayers(6),TableStatus(6),PlayerStatus(5),PlayerHandCount(5),PlayerWhiteCounters(5),PlayerBlackCounters(5),PlayerScore(5),PlayerRoundScore(5)
+Dim TableCurrentPlayers(6),TableMaxPlayers(6),TableStatus(6),PlayerStatus(5),PlayerHandCount(5),PlayerWhiteTokens(5),PlayerBlackTokens(5),PlayerScore(5),PlayerRoundScore(5),GameStatus(5)
 for i=0 to 6
  TableID$(i)=""
  TableName$(i)=""
@@ -233,12 +233,13 @@ for i=0 to 5
  playerName$(i)=""
  PlayerStatus(i)=0
  PlayerHandCount(i)=0
- PlayerWhiteCounters(i)=0
- PlayerBlackCounters(i)=0
+ PlayerWhiteTokens(i)=0
+ PlayerBlackTokens(i)=0
  PlayerScore(i)=0
  PlayerHand$(i)=""
  PlayerValidMoves$(i)=""
  PlayerRoundScore(i)=0
+ GameStatus(i)=0
 next i
 move$=""
 PlayerIndex=0
@@ -259,7 +260,9 @@ poke 65,0
 
 
 ' --------- Main program -----------------------------
-POKE 731,0 ' Turn on keyclick
+'POKE 731,0 ' Turn on keyclick
+TIMER
+WaitTime=Time
 @InitScreen
 @TitleScreen
 ' Loop until the player has successfully joined a table
@@ -269,16 +272,20 @@ DO
     @checkErrors
   UNTIL OK=1
   
-  REPEAT
+  
+  REPEAT ' loop until the  game starts
+    if Time>500
+      @readGameState
+      @DrawGameState
+      TIMER 
+    ENDIF
+    @ReadKeyPresses
+  UNTIL GameStatus(tablenumber)=3
+  REPEAT ' loop until the round ends
     @readGameState
     @DrawGameState
     @ReadKeyPresses
-  UNTIL tableStatus(tablenumber)=3
-  REPEAT
-    @readGameState
-    @DrawGameState
-    @ReadKeyPresses
-  UNTIL tableStatus(tablenumber)=4
+  UNTIL GameStatus(tablenumber)=4
 LOOP
 
 @QuitGame
@@ -402,33 +409,33 @@ ENDPROC
 
 PROC ReadKeyPresses
   K=KEY()
-  if K=224 or K=225 or K=229 or k=231  or k=226 or k=228 or K=204 or K=199 OR K=197
+  if K=224 or K=225 or K=229 or K=231 or K=226 or K=228 or K=204 or K=255 or K=197 or k=199
     @CheckVaildMove K
     @ClearKeyQueue
-  Elif K=193 AND TableStatus(tablenumber)=2
+  EliF K=193 AND GameStatus(tablenumber)=2
     @StartGame
+    @readGameState
     @ClearKeyQueue
   Elif K=237
     @CycleColorTheme
   Elif K=198
     @DisplayHelpDialog
-  Elif K=255
+  Elif K=213
     @AskSure 1 
   Elif K=208
     @AskSure 2 
   ENDIF
-  @POS 1,23:@PrintVal Time
 ENDPROC
 
 PROC CheckVaildMove _move
     KeyPressed=_move
+    if KeyPressed=255 then KeyPressed=204
     sound 0, 220,10,5
     pause 4
     sound 0, 200,10,5
     pause 2
     sound
   move$=""
-  @POS 1,22:@PrintVal KeyPressed
   if playerStatus(PlayerIndex)<>1 then Exit
   if KeyPressed=199 then move$="F"
   if KeyPressed=197
@@ -444,17 +451,12 @@ PROC CheckVaildMove _move
     if KeyPressed=Kvalue(a)
       for b=1 to len(PlayerValidMoves$(PlayerIndex))
       Dummy$=PlayerValidMoves$(PlayerIndex)[b,1]
-       @POS 1,1:@Print &Dummy$
-       @POS 1,2:@Print &STR$(a)
         if Dummy$=STR$(a)
           move$=STR$(a)
-          @POS 1,2:@Print &move$
         ENDIF
       next b
     ENDIF
   Next a
-
-  @POS 1,21:@Print &move$
   if Move$<>"" then @PlayMove
 ENDPROC
 
@@ -750,10 +752,13 @@ PROC ReadGameState
   ' Get the next line of text from the api response as the value
   @NInput &value$
   ' Depending on key, set appropriate variable to the value
-  if key$="dp" then DiscardTop=VAL(value$)
-  if key$="lmp" 
-  LastMovePlayed$=value$
-  EXIT
+  if key$="dp" 
+    DiscardTop=VAL(value$)
+  elif key$="ts" 
+    GameStatus(tablenumber)=VAL(value$)
+  elif key$="lmp" 
+    LastMovePlayed$=value$
+    EXIT
   ENDIF
   loop 
   @NInput &dummy$ ' Read the Start of the Player Array
@@ -766,25 +771,25 @@ PROC ReadGameState
   ' Get the next line of text from the api response as the value
   @NInput &value$
   ' Depending on key, set appropriate variable to the value
-  if key$="n" then PlayerName$(INDEX)=value$
-  if key$="s" then PlayerStatus(INDEX)=VAL(value$)
-  if key$="nc" then PlayerHandCount(INDEX)=VAL(value$)
-  if key$="wc" then PlayerWhiteCounters(INDEX)=VAL(value$)
-  if key$="bc" then PlayerBlackCounters(INDEX)=VAL(value$)
-  if key$="ts" then TableStatus(INDEX)=VAL(value$)
-  if key$="ph" then PlayerHand$(INDEX)=value$   
-  if key$="pvm" 
-  PlayerValidMoves$(INDEX)=value$
-  PlayerScore(INDEX)=(PlayerBlackCounters(INDEX)*10)+PlayerWhiteCounters(INDEX)
-  INC INDEX  ' If read last field of a Player Array, increment index and read next player
+  if key$="n" 
+    PlayerName$(INDEX)=value$
+    if PlayerName$(INDEX)=MyName$ then PlayerIndex=INDEX ' find the player index for the current player
+  elif key$="s" 
+    PlayerStatus(INDEX)=VAL(value$)
+  elif key$="nc" 
+    PlayerHandCount(INDEX)=VAL(value$)
+  elif key$="wt" 
+    PlayerWhiteTokens(INDEX)=VAL(value$)
+  elif key$="bt" 
+    PlayerBlackTokens(INDEX)=VAL(value$)
+  elif key$="ph" 
+    PlayerHand$(INDEX)=value$   
+  elif key$="pvm" 
+    PlayerValidMoves$(INDEX)=value$
+    PlayerScore(INDEX)=(PlayerBlackTokens(INDEX)*10)+PlayerWhiteTokens(INDEX)
+    INC INDEX  ' If read last field of a Player Array, increment index and read next player
   ENDIF
   loop 
-  ' find the player index for the current player
-  for a=0 to 5
- if PlayerName$(a)=MyName$
- PlayerIndex=a
- endif
-  Next a
 ENDPROC
 
 PROC PlayMove 
@@ -886,8 +891,8 @@ PROC DrawGameState
   @POS 15,16: @PrintByte 254:@POS 23,16: @PrintByte 254                 
   @DrawPlayers
   if LastMovePlayed$="Waiting for players to join"
-  @POS 7,3: @Print &"WAIT OTHER PLAYERS TO JOIN"
-  @POS 10,4: @Print &"OR PRESS S TO START" 
+  @POS 2,3: @Print &"PLEASE WAIT FOR OTHER PLAYERS TO JOIN"
+  @POS 3,4: @Print &"OR PRESS S TO START WITH AI PLAYERS" 
   @PrintCard 17,9,8 ' Draw Deck
   @PrintCard 20,9,0 ' Discard Pile
   @DrawBufferEnd
@@ -902,7 +907,7 @@ PROC DrawGameState
   endif
   @PrintCard 20,9,DiscardTop ' Discard Pile
   @POS 1,24: @PrintUpper & LastMovePlayed$[1,38]
-  @POS 5,25:@Print &"H-HELP C-COLOR L-LEAVE Q-QUIT"
+  @POS 5,25:@Print &"H-HELP C-COLOR E-EXIT Q-QUIT"
   if PlayerStatus(PlayerIndex)=1 
   @POS 1,24: @PrintUpper & LastMovePlayed$[1,23]
   @Print &", YOUR TURN NOW"
@@ -998,39 +1003,39 @@ PROC PrintPlayerHand _col _row _numCards
   next i
 ENDPROC
 
-PROC PrintPlayerScore _col _row _BlackCounters _WhiteCounters
-  x=_col:y=_row:bc=_BlackCounters:wc=_WhiteCounters
-  IF BC=0
+PROC PrintPlayerScore _col _row _BlackTokens _WhiteTokens
+  x=_col:y=_row:bt=_BlackTokens:wt=_WhiteTokens
+  IF BT=0
   @POS x,y:@PrintByte 1:@PrintByte 2:@PrintByte 2:@PrintByte 3
-  ELIF BC=1
+  ELIF BT=1
   @POS x,y:@PrintByte 4:@PrintByte 2:@PrintByte 2:@PrintByte 3
-  ELIF BC=2   
+  ELIF BT=2   
   @POS x,y:@PrintByte 5:@PrintByte 2:@PrintByte 2:@PrintByte 3
-  ELIF BC=3                                               
+  ELIF BT=3                                               
   @POS x,y:@PrintByte 6:@PrintByte 2:@PrintByte 2:@PrintByte 3
   ENDIF
 
-  IF WC=0
+  IF WT=0
     @POS x+1,y:@PrintByte 2:@PrintByte 2:@PrintByte 3
-  ELIF WC=1
+  ELIF WT=1
     @POS x+1,y:@PrintByte 2:@PrintByte 2:@PrintByte 11
-  ELIF WC=2   
+  ELIF WT=2   
     @POS x+1,y:@PrintByte 2:@PrintByte 7:@PrintByte 11
-  ELIF WC=3                                               
+  ELIF WT=3                                               
     @POS x+1,y:@PrintByte 7:@PrintByte 7:@PrintByte 11
-  ELIF WC=4
+  ELIF WT=4
     @POS x+1,y:@PrintByte 7:@PrintByte 8:@PrintByte 11
-  ELIF WC=5   
+  ELIF WT=5   
     @POS x+1,y:@PrintByte 8:@PrintByte 8:@PrintByte 11
-  ELIF WC=6                                               
+  ELIF WT=6                                               
     @POS x+1,y:@PrintByte 8:@PrintByte 8:@PrintByte 12  
-  ELIF WC=7
+  ELIF WT=7
     @POS x+1,y:@PrintByte 9:@PrintByte 8:@PrintByte 12
-  ELIF WC=8   
+  ELIF WT=8   
     @POS x+1,y:@PrintByte 9:@PrintByte 9:@PrintByte 12
-  ELIF WC=9                                               
+  ELIF WT=9                                               
     @POS x+1,y:@PrintByte 9:@PrintByte 10:@PrintByte 12
-  ELIF WC=10                                               
+  ELIF WT=10                                               
     @POS x+1,y:@PrintByte 10:@PrintByte 10:@PrintByte 12
   ENDIF
 ENDPROC
@@ -1056,7 +1061,7 @@ PROC DrawPlayers
   @POS X,Y: @PrintUpper &PlayerName$(PlayerIndex)[1,Xoffset]
   @POS X+Xoffset,Y: @Print &":"
   @POS X+Xoffset+1,Y: @PrintVal PlayerStatus(PlayerIndex)
-  @printPlayerScore X+Xoffset+2,17,PlayerBlackCounters(PlayerIndex),PlayerWhiteCounters(PlayerIndex)
+  @printPlayerScore X+Xoffset+2,17,PlayerBlackTokens(PlayerIndex),PlayerWhiteTokens(PlayerIndex)
   DATA XPOS()=1,1,0,25,25
   DATA HPOS()=1,1,13,26,26
   DATA YPOS()=12,6,1,6,12
@@ -1073,7 +1078,7 @@ PROC DrawPlayers
     @POS X,YPOS(SLOT): @PrintUpper &PlayerName$(a)[1,Xoffset]
     @POS X+Xoffset,YPOS(SLOT): @Print &":"
     @POS X+Xoffset+1,YPOS(SLOT): @PrintVal PlayerStatus(a)
-    @printPlayerScore X+Xoffset+2,YPOS(SLOT),PlayerBlackCounters(a),PlayerWhiteCounters(a)
+    @printPlayerScore X+Xoffset+2,YPOS(SLOT),PlayerBlackTokens(a),PlayerWhiteTokens(a)
     if slot=2 
     @printPlayerHand XPOS(SLOT)+((38-(PlayerHandCount(a)+2))/2),YPOS(SLOT)+2,PlayerHandCount(a)
     else

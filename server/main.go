@@ -70,8 +70,8 @@ type Player struct {
 	Name           string
 	Human          bool
 	Status         Status
-	Whitecounters  int
-	Blackcounters  int
+	WhiteTokens    int
+	BlackTokens    int
 	Score          int
 	Hand           Deck
 	NumCards       int       // Number of cards in hand
@@ -216,8 +216,8 @@ func joinTable(c *gin.Context) {
 		Name:           newplayerName,
 		Human:          true,
 		Status:         STATUS_WAITING,
-		Whitecounters:  0,
-		Blackcounters:  0,
+		WhiteTokens:    0,
+		BlackTokens:    0,
 		Score:          0,
 		RoundScore:     0,
 		Hand:           Deck{},
@@ -313,15 +313,15 @@ func StartNewGame(c *gin.Context) {
 			}
 			// Create a new AI player
 			newAIPlayer := Player{
-				Name:          fmt.Sprintf("AI-%d", i+1),
-				Human:         false,
-				Status:        STATUS_WAITING,
-				Whitecounters: 0,
-				Blackcounters: 0,
-				Score:         0,
-				RoundScore:    0,
-				Hand:          Deck{},
-				Playorder:     gameStates[tableIndex].Table.CurPlayers, // Set the play order based on the current number of players
+				Name:        fmt.Sprintf("AI-%d", i+1),
+				Human:       false,
+				Status:      STATUS_WAITING,
+				WhiteTokens: 0,
+				BlackTokens: 0,
+				Score:       0,
+				RoundScore:  0,
+				Hand:        Deck{},
+				Playorder:   gameStates[tableIndex].Table.CurPlayers, // Set the play order based on the current number of players
 			}
 			gameStates[tableIndex].Players = append(gameStates[tableIndex].Players, newAIPlayer)
 			gameStates[tableIndex].Table.CurPlayers++
@@ -387,32 +387,32 @@ func getGameState(c *gin.Context) {
 
 	// Create player state info for all players at table
 	playerStates := make([]struct {
-		Name          string `json:"n"`
-		Status        Status `json:"s"`
-		NumCards      int    `json:"nc"`
-		WhiteCounters int    `json:"wc"`
-		BlackCounters int    `json:"bc"`
-		HandSummary   string `json:"ph"`
-		ValidMove     string `json:"pvm"`
+		Name        string `json:"n"`
+		Status      Status `json:"s"`
+		NumCards    int    `json:"nc"`
+		WhiteTokens int    `json:"wt"`
+		BlackTokens int    `json:"bt"`
+		HandSummary string `json:"ph"`
+		ValidMove   string `json:"pvm"`
 	}, len(gameStates[tableIndex].Players))
 
 	for i, player := range gameStates[tableIndex].Players {
 		playerStates[i] = struct {
-			Name          string `json:"n"`
-			Status        Status `json:"s"`
-			NumCards      int    `json:"nc"`
-			WhiteCounters int    `json:"wc"`
-			BlackCounters int    `json:"bc"`
-			HandSummary   string `json:"ph"`
-			ValidMove     string `json:"pvm"`
+			Name        string `json:"n"`
+			Status      Status `json:"s"`
+			NumCards    int    `json:"nc"`
+			WhiteTokens int    `json:"wt"`
+			BlackTokens int    `json:"bt"`
+			HandSummary string `json:"ph"`
+			ValidMove   string `json:"pvm"`
 		}{
-			Name:          player.Name,
-			Status:        player.Status,
-			NumCards:      player.NumCards,
-			WhiteCounters: player.Whitecounters,
-			BlackCounters: player.Blackcounters,
-			HandSummary:   makeHandSummary(tableIndex, i),
-			ValidMove:     player.ValidMove,
+			Name:        player.Name,
+			Status:      player.Status,
+			NumCards:    player.NumCards,
+			WhiteTokens: player.WhiteTokens,
+			BlackTokens: player.BlackTokens,
+			HandSummary: makeHandSummary(tableIndex, i),
+			ValidMove:   player.ValidMove,
 		}
 	}
 
@@ -443,7 +443,7 @@ func getGameState(c *gin.Context) {
 		StartNewGame(c)
 	}
 	// If the table is playing and the waiting timer has exceeded 2 seconds, make an AI move if it's an AI player's turn
-	if elapsed >= 2*time.Second && gameStates[tableIndex].Table.Status == 1 {
+	if elapsed >= 2*time.Second && gameStates[tableIndex].Table.Status == 3 {
 		for i := 0; i < len(gameStates[tableIndex].Players); i++ {
 			if gameStates[tableIndex].Players[i].Status == STATUS_PLAYING && !gameStates[tableIndex].Players[i].Human {
 				move := aiMove(tableIndex, i)    // AI move function to determine the AI's move)
@@ -454,7 +454,7 @@ func getGameState(c *gin.Context) {
 	}
 
 	// If the table is playing and the waiting timer has exceeded 60 seconds, Auto fold the player who has not made a move in 60 seconds
-	if elapsed >= 60*time.Second && gameStates[tableIndex].Table.Status == 1 {
+	if elapsed >= 60*time.Second && gameStates[tableIndex].Table.Status == 3 {
 		gameStates[tableIndex].startTime = time.Now() // Reset the waiting timer
 		for i := 0; i < len(gameStates[tableIndex].Players); i++ {
 			if gameStates[tableIndex].Players[i].Status == STATUS_PLAYING {
@@ -631,11 +631,22 @@ func doVaildMoveURL(c *gin.Context) {
 
 // Perform the valid move for the player at the specified table
 func doVaildMove(tableIndex int, playerIndex int, move string) {
+
+	nextValue := gameStates[tableIndex].Discard.Cardvalue + 1
+	if nextValue > 7 {
+		nextValue = 1
+	}
+
 	gameStates[tableIndex].startTime = time.Now() // Reset the waiting timer
 	switch move {
 	case strconv.Itoa(gameStates[tableIndex].Discard.Cardvalue): // Play card onto the discard pile
 		gameStates[tableIndex].LastMovePlayed = gameStates[tableIndex].Players[playerIndex].Name + " played a " + gameStates[tableIndex].Discard.Cardname
 		removeCardFromHand(tableIndex, playerIndex, gameStates[tableIndex].Discard) // Remove the played card from the player's hand
+	case strconv.Itoa(nextValue): // Play card onto the discard pile
+		cardNames := []string{"One", "Two", "Three", "Four", "Five", "Six", "Llama"}
+		gameStates[tableIndex].LastMovePlayed = gameStates[tableIndex].Players[playerIndex].Name + " played a " + cardNames[nextValue-1]
+		gameStates[tableIndex].Discard = Card{Cardvalue: nextValue, Cardname: cardNames[nextValue-1]}
+		removeCardFromHand(tableIndex, playerIndex, Card{Cardvalue: nextValue, Cardname: cardNames[nextValue-1]}) // Remove the played card from the player's hand
 	case "D": // Draw
 		gameStates[tableIndex].LastMovePlayed = gameStates[tableIndex].Players[playerIndex].Name + " drew a card from the deck"
 		addCardtohand(tableIndex, playerIndex) // Add a card to the player's hand
@@ -768,13 +779,13 @@ func EndofRoundScore(tableIndex int) {
 			a = a - (c * 10)
 			if (a + (b * 10)) == 0 {
 				switch {
-				case gameStates[tableIndex].Players[i].Blackcounters > 0:
+				case gameStates[tableIndex].Players[i].BlackTokens > 0:
 					gameStates[tableIndex].Players[i].Message1 = gameStates[tableIndex].Players[i].Name + " finished with no cards, so scores zero points and is returning one black token"
-					gameStates[tableIndex].Players[i].Blackcounters = gameStates[tableIndex].Players[i].Blackcounters - 1
+					gameStates[tableIndex].Players[i].BlackTokens = gameStates[tableIndex].Players[i].BlackTokens - 1
 					gameStates[tableIndex].Players[i].RoundScore = -10
-				case gameStates[tableIndex].Players[i].Whitecounters > 0:
+				case gameStates[tableIndex].Players[i].WhiteTokens > 0:
 					gameStates[tableIndex].Players[i].Message1 = gameStates[tableIndex].Players[i].Name + " finished with no cards, so scores zero points and is returning one white token"
-					gameStates[tableIndex].Players[i].Whitecounters = gameStates[tableIndex].Players[i].Whitecounters - 1
+					gameStates[tableIndex].Players[i].WhiteTokens = gameStates[tableIndex].Players[i].WhiteTokens - 1
 					gameStates[tableIndex].Players[i].RoundScore = -1
 				default:
 					gameStates[tableIndex].Players[i].Message1 = gameStates[tableIndex].Players[i].Name + " finished with no cards, so scores zero points"
@@ -783,8 +794,8 @@ func EndofRoundScore(tableIndex int) {
 			} else {
 				gameStates[tableIndex].Players[i].RoundScore = a + (b * 10) // Calculate the round score
 				gameStates[tableIndex].Players[i].Message1 = fmt.Sprintf("and gains %d white counters and %d black counters, scoring %d points", a, b, gameStates[tableIndex].Players[i].RoundScore)
-				gameStates[tableIndex].Players[i].Whitecounters = gameStates[tableIndex].Players[i].Whitecounters + a
-				gameStates[tableIndex].Players[i].Blackcounters = gameStates[tableIndex].Players[i].Blackcounters + b
+				gameStates[tableIndex].Players[i].WhiteTokens = gameStates[tableIndex].Players[i].WhiteTokens + a
+				gameStates[tableIndex].Players[i].BlackTokens = gameStates[tableIndex].Players[i].BlackTokens + b
 
 			}
 			gameStates[tableIndex].Players[i].Score = gameStates[tableIndex].Players[i].Score + gameStates[tableIndex].Players[i].RoundScore // Update the player's total score

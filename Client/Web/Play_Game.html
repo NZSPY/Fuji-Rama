@@ -80,14 +80,14 @@
         
 
         allTablesHtml += `<table style="width: auto;">`;
-        allTablesHtml += `<tr><th colspan="3">${playerName} you have ${blackCounters} Black and ${whiteCounters} White Counters:  Score: ${score}</th></tr>`;
+        allTablesHtml += `<tr><th colspan="3">${playerName} you have ${blackCounters} Black and ${whiteCounters} White Tokens:  Score: ${score}</th></tr>`;
         
         // Row for cards
         allTablesHtml += '<tr>';
         // Draw deck
         allTablesHtml += `<td style="vertical-align: top; text-align: center;"><B>Draw Deck (${DrawDeck})</B><br>`;
         if (DrawDeck > 0) {
-            if (moves.includes('d')) {
+            if (moves.includes('D')) {
             allTablesHtml += `<button onclick="moveDraw()" style="border: dotted; background: none; padding: 0; cursor: pointer;">
                 <img src="LlamaCardBack.png" alt="Card Back" style="width:100px;">
             </button>`;
@@ -101,7 +101,7 @@
 
         // Player's hand
         allTablesHtml += '<td style="text-align: center;">Your Cards<br>';
-        const isPlayingMove = moves.includes('c') || moves.includes('n');
+        const isPlayingMove = moves.includes('1') || moves.includes('2') || moves.includes('3') || moves.includes('4') || moves.includes('5') || moves.includes('6') || moves.includes('7');
         const playerHand = currentPlayer ? currentPlayer.ph : '';
         if (playerHand) {
             playerHand.split('').forEach(cardValue => {
@@ -121,7 +121,7 @@
         const discardCards = Array.isArray(data.dp) ? data.dp : [data.dp];
         discardCards.forEach(card => {
             const cardValue = typeof card === 'object' ? card.cv : card;
-            if (moves.includes('f')) {
+            if (moves.includes('F')) {
                 allTablesHtml += `<button onclick="moveFold()" style="border: dotted; background: none; padding: 0; cursor: pointer;">
                     <img src="LlamaCard${cardValue}.png" alt="Card ${cardValue}" style="width:100px; margin:2px;">
                 </button>`;
@@ -132,20 +132,23 @@
         allTablesHtml += '</td></tr>';
 
         // Valid moves
-        allTablesHtml += `<tr><td colspan="2">
+        allTablesHtml += `<tr>
+            <td colspan="2">
             ${data.pls.find(p => p.n === playerName)?.s === 2 
             ? '<p>You have folded, Please wait for other players to finish</p>' 
             : data.pls.find(p => p.n === playerName)?.s === 0
             ? '<p>Please wait for other players have their turn</p>'
             : data.pls.find(p => p.n === playerName)?.s === 1
-            ? `${(moves.includes('c') || moves.includes('n') || moves.includes('d') || moves.includes('f'))
-            ? `${moves.includes('d') ? '<span style="color: green;">Click on the draw deck to draw a card</br></span>' : ''}
-               ${moves.includes('c') || moves.includes('n') ? '<span style="color: Blue;">Click on a valid card in your hand to play it</br></span>' : ''}
-               ${moves.includes('d') ? '<span style="color: red;">Click on the discard pile to fold</span>' : ''}`
-            : ''}</td><td><BR><B>Time remaining:</B> <div id="timer" style="font-size: 24px; color: #333;">60</div>(until auto fold)</td>`
-            : '<p>The round is over</p>'
-            }
-        </td></tr>`;
+            ? `${moves.includes('D') ? '<span style="color: green;">Click on the draw deck to draw a card</br></span>' : ''}
+               ${moves.includes('1') || moves.includes('2') || moves.includes('3') || moves.includes('4') || moves.includes('5') || moves.includes('6') || moves.includes('7') ? '<span style="color: Blue;">Click on a valid card in your hand to play it</br></span>' : ''}
+               ${moves.includes('F') ? '<span style="color: red;">Click on the discard pile to fold</span>' : ''}` : ''}
+            </td>
+            <td>
+            ${data.pls.find(p => p.n === playerName)?.s === 1 
+            ? `<br /><b>Time remaining:</b> <div id="timer" style="font-size: 24px; color: #333;">60</div>(until auto fold)` 
+            : ''}
+            </td>
+        </tr>`;
 
          // Last move played
          const lastMovePlayed = Array.isArray(data.lmp)? data.lmp.join(', ') : data.lmp;
@@ -213,25 +216,8 @@
 function playCard(cardclicked) {
     const card = cardclicked;
     
-    
-  
-    const lastMovePlayed = `Playing card: ${card} Discard top card: ${discardTop}`;
-    
-    if (cardclicked === discardTop) {
-        moveCurrent();       
-    }
 
-    if (cardclicked === discardNext) {
-        moveNext();
-    }
-}
-
-
-
-
-
-        function moveCurrent() {
-            fetch('http://192.168.68.100:8080/move?table=' + tableId + '&player=' + playerName + "&VM=C")
+            fetch('http://192.168.68.100:8080/move?table=' + tableId + '&player=' + playerName + "&VM="+cardclicked)
             .then(response => {
                 if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
@@ -246,21 +232,7 @@ function playCard(cardclicked) {
             });
         }
 
-        function moveNext() {
-            fetch('http://192.168.68.100:8080/move?table=' + tableId + '&player=' + playerName+ "&VM=N")
-            .then(response => {
-                if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                return response.json();
-            })
-            .then(() => {
-                fetchGameState(); // Refresh the game state
-            })
-            .catch(error => {
-                console.error('Error making move:', error);
-            });
-        }
+
 
         function moveDraw() {
             fetch('http://192.168.68.100:8080/move?table=' + tableId + '&player=' + playerName+ "&VM=D")
