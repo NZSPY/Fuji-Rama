@@ -111,7 +111,7 @@ func main() {
 	router.GET("/join", joinTable)        // Join a table
 	router.GET("/start", StartNewGame)    // start a new game on a table (this also happens automaticly when the table is filled with players), if the table is not filled  it will fill the emplty slots with AI Players
 	router.GET("/move", doVaildMoveURL)   // Make a move on the table (play, fold, draw)
-	router.GET("/results", getResults)    // View the results of the last round played
+	// router.GET("/results", getResults)    // View the results of the last round played (not sure I need this now)
 
 	// Set up router and start server
 	router.SetTrustedProxies(nil) // Disable trusted proxies because Gin told me to do it.. (neeed to investigate this further)
@@ -382,6 +382,10 @@ func getGameState(c *gin.Context) {
 		gameStates[tableIndex].Players[playerIndex].LastPolledTime = time.Now()
 		gameStates[tableIndex].Players[playerIndex].ValidMove = setValidmoves(tableIndex, playerIndex)
 	}
+	// If the table is in round over status set all players valid moves to view results only
+	if gameStates[tableIndex].Table.Status == 4 {
+		SetEndofRoundMoves(tableIndex)
+	}
 
 	elapsed := time.Since(gameStates[tableIndex].startTime)
 
@@ -473,7 +477,7 @@ func getGameState(c *gin.Context) {
 
 	// check if all players have viewed the results and reset the game state if so
 	if allViewed(tableIndex) && gameStates[tableIndex].RoundOver {
-		resetTable(tableIndex) // Reset the game state for a new game
+		resetTable(tableIndex) // Reset the game state for a new round
 		fmt.Println("All players have viewed the results, resetting game for table", tables[tableIndex].Table)
 		if gameStates[tableIndex].Gameover {
 			resetGame(tableIndex) // Reset the game state for a new game
@@ -596,7 +600,7 @@ func doVaildMoveURL(c *gin.Context) {
 			playerFound = true
 			playerIndex = i // Store the index of the player
 			validMoves = player.ValidMove
-			if player.Status != STATUS_PLAYING {
+			if player.Status != STATUS_PLAYING && player.ValidMove != "R" {
 
 				c.JSON(http.StatusBadRequest, "It's not your turn to play")
 
@@ -611,7 +615,7 @@ func doVaildMoveURL(c *gin.Context) {
 		return
 	}
 
-	move := c.Query("VM") // Valid Move (e.g., "P", "N", "D", "F")
+	move := c.Query("VM") // Valid Move (e.g., "P", "N", "D", "F","R")
 	if playerName == "" || move == "" {
 
 		c.JSON(http.StatusBadRequest, "Must specify both player name and move")
@@ -653,8 +657,11 @@ func doVaildMove(tableIndex int, playerIndex int, move string) {
 	case "F": // Fold
 		gameStates[tableIndex].LastMovePlayed = gameStates[tableIndex].Players[playerIndex].Name + " folded"
 		gameStates[tableIndex].Players[playerIndex].Status = STATUS_FOLDED
-
 		gameStates[tableIndex].EndedLast = playerIndex
+	case "R": // Viewed the results of the round
+		gameStates[tableIndex].Players[playerIndex].Status = STATUS_VIEWED
+		gameStates[tableIndex].Players[playerIndex].ValidMove = ""
+		return
 	}
 
 	// Update the player's  status
@@ -751,8 +758,9 @@ func EndofRoundScore(tableIndex int) {
 	// Check if score has already been calculated for this round
 	if gameStates[tableIndex].RoundOver {
 		fmt.Println("Scores have already been calculated for this round, skipping score calculation")
-		gameStates[tableIndex].LastMovePlayed = "(RE) Please view the results"
+		gameStates[tableIndex].LastMovePlayed = "Please view the results"
 		gameStates[tableIndex].Table.Status = 4
+		SetEndofRoundMoves(tableIndex)
 		tables[tableIndex].Status = gameStates[tableIndex].Table.Status
 		return
 	}
@@ -802,12 +810,21 @@ func EndofRoundScore(tableIndex int) {
 			gameStates[tableIndex].Players[i].Message2 = fmt.Sprintf("Total score is now %d points", gameStates[tableIndex].Players[i].Score)
 		}
 	}
-	gameStates[tableIndex].LastMovePlayed = "(RE) Please view the results"
+	gameStates[tableIndex].LastMovePlayed = "Please view the results"
 	gameStates[tableIndex].RoundOver = true // Set the round over flag to true to prevent multiple score calculations
 	gameStates[tableIndex].Table.Status = 4
+	SetEndofRoundMoves(tableIndex)
 	tables[tableIndex].Status = gameStates[tableIndex].Table.Status
+
 }
 
+func SetEndofRoundMoves(tableIndex int) {
+	for i := 0; i < len(gameStates[tableIndex].Players); i++ {
+		gameStates[tableIndex].Players[i].ValidMove = "R" // Set valid moves to view results only
+	}
+}
+
+/*
 func getResults(c *gin.Context) {
 
 	tableIndex, ok := getTableIndex(c)
@@ -916,6 +933,7 @@ func getResults(c *gin.Context) {
 	c.JSON(http.StatusOK, results)
 	gameStates[tableIndex].Players[playerIndex].Status = STATUS_VIEWED // Set the requesting player's status to viewed
 }
+*/
 
 // Check if all human players have viewed the results
 func allViewed(tableIndex int) bool {
@@ -964,6 +982,7 @@ func resetTable(tableIndex int) {
 	}
 	dealCards(tableIndex)                                                                    // Deal cards to all players at the table for the next round
 	gameStates[tableIndex].Players[gameStates[tableIndex].EndedLast].Status = STATUS_PLAYING // Set the player who ended the last round to be the player that starts the next round
+	gameStates[tableIndex].Table.Status = 3
 }
 
 // Set the play order for each player based on their index in the Players slice

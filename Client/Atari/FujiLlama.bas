@@ -175,20 +175,20 @@ data byte = 16,16,16,85,16,16,16,0,
 data byte = 0,0,16,21,16,16,0,0,
 data byte = 16,32,168,169,168,168,32,16,
 data byte = 16,48,184,236,236,236,184,48,
+data byte = 106,106,106,106,255,255,0,0,
+data byte = 170,170,170,170,255,255,0,0,
+data byte = 0,0,0,0,0,32,32,128,
+data byte = 0,32,236,184,184,184,236,32,
+data byte = 0,0,0,80,0,0,0,0,
 data byte = 0,0,0,0,15,15,12,12,
 data byte = 0,0,0,0,252,252,12,12,
-data byte = 0,0,0,0,0,32,32,128,
 data byte = 12,12,12,12,15,15,0,0,
-data byte = 0,0,0,80,0,0,0,0,
-data byte = 10,47,191,181,183,183,183,183,
-data byte = 128,224,248,248,120,120,120,120,
-data byte = 183,183,183,183,181,191,47,10,
-data byte = 120,120,120,120,248,248,224,128,
 data byte = 12,12,12,12,252,252,0,0,
+data byte = 164,164,164,164,255,255,0,0,
 data byte = 0,8,8,32,32,32,128,128,
 data byte = 0,0,0,0,168,0,0,0,
 data byte = 12,12,12,12,255,255,0,0,
-data byte = 255,255,0,0,0,0,0,0
+data byte = 0,0,0,0,0,0,0,0
 
 ' DLI Colors 
 data background_color()B.=$0,0,0
@@ -285,7 +285,8 @@ DO
     @readGameState
     @DrawGameState
     @ReadKeyPresses
-  UNTIL GameStatus(tablenumber)=4
+    if GameStatus(tablenumber)=4 then @ShowResults
+  UNTIL GameStatus(tablenumber)=5
 LOOP
 
 @QuitGame
@@ -461,90 +462,51 @@ PROC CheckVaildMove _move
 ENDPROC
 
 PROC ShowResults
-  JSON$="/results?table="
-  JSON$=+TableID$(TableNumber)
-  JSON$=+"&player="
-  JSON$=+MyName$
-  @CallFujiNet
-  @NInputInit UNIT, &responseBuffer
-  @NInput &dummy$
-  @checkErrors
-  if ok <>1 then Exit
-  @NInput &dummy$
-  MessageLine1$=dummy$
-  key$="" : value$=""
-  do ' Loop reading key/value pairs until we reach the Start of the Player Array
-  ' Get the next line of text from the api response as the key
-  @NInput &key$
-  ' An empty key means we reached the end of the response
-  if len(key$) = 0 then exit
-  ' Get the next line of text from the api response as the value
-  @NInput &value$
-  ' Depending on key, set appropriate variable to the value
-  if key$="msg2" then MessageLine2$=value$
-  if key$="msg3" 
-  MessageLine3$=value$
-  EXIT
-  ENDIF
-  loop 
-  @NInput &dummy$ ' Read the Start of the Player Array
-  INDEX=0
-  do ' Loop reading key/value pairs until we reach the Start of the Player Array
-  ' Get the next line of text from the api response as the key
-  @NInput &key$
-  
-  ' An empty key means we reached the end of the response
-  if len(key$) = 0 then exit
-
-  ' Get the next line of text from the api response as the value
-  @NInput &value$
- 
-  ' Depending on key, set appropriate variable to the value
-  if key$="n" then PlayerName$(INDEX)=value$
-  if key$="ph" then PlayerHand$(INDEX)=value$   
-  if key$="rs" then PlayerRoundScore(INDEX)=VAL(value$)
-  if key$="s" 
-  PlayerScore(INDEX)=VAL(value$)
-  INC INDEX  ' If read last field of a Player Array, increment index and read next player
-  ENDIF
-  loop 
-  ' find the player index for the current player
-  for a=0 to 5
-  if PlayerName$(a)=MyName$
-  PlayerIndex=a
-  endif
-  Next a
-  ? "****************************************";
-  ? "        *** Fuji-Llama ***            "  
-  ? "****************************************";
-  ? "  ";tableName$(TableNumber);" - Player: ";MyName$
-
-  ? MessageLine1$
-  if MessageLine2$<>"" then ? MessageLine2$
-  if MessageLine3$<>"" 
-  ? MessageLine3$
-  gameover=1
-  ENDIF
-  ?  "****************************************";
-  for a=0 to 5
- if PlayerName$(a)<>""
-  ? PlayerName$(a);"'s cards are ";PlayerHand$(a)
- 
-  ? "----------------------------------------";
-  endif
-  Next a
-  ? "****************************************";
-  ? "<press space see the Leaderboard>"
+  @EnableDoubleBuffer
+  @ResetScreen
+  @POS 2,0: @Print &"ROUND OVER - PLAYERS HANDS AND SCORES"
+  @POS 0,1: @PrintINV &"@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
+  @DrawPlayersResults
+  @POS 7,25:@Print &"PRESS ANY KEY TO CONTINUE"
+  @DrawBufferEnd
+  @ShowScreen
   GET K
-  ? "Name                         Round Score";
-  for a=0 to 5
-  if PlayerName$(a)<>""
-  ? PlayerName$(a);"          ";PlayerRoundScore(a);" ";PlayerScore(a)
-  endif
-  Next a
-  ? "****************************************";
-  ? "<press space to start new round>"
-  GET K
+  move$="R"
+  @PlayMove
+  @POS 7,25:@Print &"STARTING NEXT ROUND PLEASE WAIT"
+  @readGameState
+ENDPROC
+
+PROC DrawPlayersResults 
+  ' Draw the players Results on the screen
+  X=1:Y=2
+  For aa=0 to 5
+    if PlayerName$(aa)<>""
+      Xoffset=LEN(PlayerName$(aa))
+      if Xoffset>12 then Xoffset=12
+      if Xoffset<9 then Xoffset=9
+      @POS 0,Y+3: @Print &"@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
+      @DrawResultHands aa,Xoffset+2,Y
+      @POS X,Y: @PrintUpper &PlayerName$(aa)[1,Xoffset]:@Print &":"
+      @printPlayerScore X+2,Y+1,PlayerBlackTokens(aa),PlayerWhiteTokens(aa)
+      @POS X,Y+2: @Print &"SCORE:"
+      @POS X+6,Y+2: @PrintVal PlayerScore(aa)
+      if PlayerHand$(aa)="" 
+        @POS X,Y: @PrintUpper &PlayerName$(aa)[1,Xoffset]: @Print &" HAS NO CARDS LEFT"
+        @POS X+7,Y+1: @Print &"WININNG THIS ROUND"
+      Endif
+      Y=Y+4
+    endif
+  next aa
+ENDPROC
+
+PROC DrawResultHands _Index _Xoffset _Yoffset
+  DisplayIndex=_Index:XX=_Xoffset:YY=_Yoffset
+  for a=1 to len(PlayerHand$(DisplayIndex))
+    card=VAL(PlayerHand$(DisplayIndex)[a,1])
+    @PrintCardLine XX,YY,card
+    XX=XX+3
+ next a
 ENDPROC
 
 PROC AskSure _type 
@@ -891,8 +853,8 @@ PROC DrawGameState
   @POS 15,16: @PrintByte 254:@POS 23,16: @PrintByte 254                 
   @DrawPlayers
   if LastMovePlayed$="Waiting for players to join"
-  @POS 2,3: @Print &"PLEASE WAIT FOR OTHER PLAYERS TO JOIN"
-  @POS 3,4: @Print &"OR PRESS S TO START WITH AI PLAYERS" 
+  @POS 2,2: @Print &"PLEASE WAIT FOR OTHER PLAYERS TO JOIN"
+  @POS 3,3: @Print &"OR PRESS S TO START WITH AI PLAYERS" 
   @PrintCard 17,9,8 ' Draw Deck
   @PrintCard 20,9,0 ' Discard Pile
   @DrawBufferEnd
@@ -911,145 +873,196 @@ PROC DrawGameState
   if PlayerStatus(PlayerIndex)=1 
   @POS 1,24: @PrintUpper & LastMovePlayed$[1,23]
   @Print &", YOUR TURN NOW"
-  @printDrawButton 2,20
+  @POS 2,20: @Print &"DRAW"
   @printFoldButton 37,20
   ENDIF
   @DrawBufferEnd
   @ShowScreen
 ENDPROC
 
-PROC PrintMainPlayerHand
-  if PlayerHandCount(PlayerIndex)<9
-  X=((36-(PlayerHandCount(PlayerIndex)*4))/2)+2
-  for a=1 to len(PlayerHand$(PlayerIndex))
-    card=VAL(PlayerHand$(PlayerIndex)[a,1])
-    @PrintCard X,19,card
-    X=X+4
+PROC DrawPlayerHand _Index
+  DisplayIndex=_Index:YY=19
+  if PlayerHandCount(DisplayIndex)<9
+  XX=((36-(PlayerHandCount(DisplayIndex)*4))/2)+2
+  for a=1 to len(PlayerHand$(DisplayIndex))
+    card=VAL(PlayerHand$(DisplayIndex)[a,1])
+    @PrintCard XX,YY,card
+    XX=XX+4
   next a
-  elif PlayerHandCount(PlayerIndex)<10 ' more than 8 cards so print cards closer together
-  X=((36-(PlayerHandCount(PlayerIndex)*3))/2)+2
-  for a=1 to len(PlayerHand$(PlayerIndex))
-    card=VAL(PlayerHand$(PlayerIndex)[a,1])
-    @PrintCard X,19,card
-    X=X+3
+  elif PlayerHandCount(DisplayIndex)<10 ' more than 8 cards so print cards closer together
+  XX=((36-(PlayerHandCount(DisplayIndex)*3))/2)+2
+  for a=1 to len(PlayerHand$(DisplayIndex))
+    card=VAL(PlayerHand$(DisplayIndex)[a,1])
+    @PrintCard XX,YY,card
+    XX=XX+3
  next a
  else ' more than 10 cards so print even closer together
-  X=((36-(PlayerHandCount(PlayerIndex)*2)+1)/2)+2
-  for a=1 to len(PlayerHand$(PlayerIndex))
-    card=VAL(PlayerHand$(PlayerIndex)[a,1])
-    @PrintCard X,19,card
-    X=X+2
+  XX=((36-(PlayerHandCount(DisplayIndex)*2)+1)/2)+2
+  for a=1 to len(PlayerHand$(DisplayIndex))
+    card=VAL(PlayerHand$(DisplayIndex)[a,1])
+    @PrintCard XX,YY,card
+    XX=XX+2
  next a
   Endif
 ENDPROC
 
 PROC PrintCard _col _row _card
-  x=_col:y=_row:card=_card
+  XXX=_col:YYY=_row:card=_card
   IF card=0  
-    @POS x,y:@PrintByte 28:@PrintByte 29:@PrintByte 30
-    @POS x,y+1:@PrintByte 62:@PrintByte 63:@PrintByte 64
-    @POS x,y+2:@PrintByte 62:@PrintByte 63:@PrintByte 64
-    @POS x,y+3:@PrintByte 59:@PrintByte 60:@PrintByte 61
+    @POS XXX,YYY:@PrintByte 28:@PrintByte 29:@PrintByte 30
+    @POS XXX,YYY+1:@PrintByte 62:@PrintByte 63:@PrintByte 64
+    @POS XXX,YYY+2:@PrintByte 62:@PrintByte 63:@PrintByte 64
+    @POS XXX,YYY+3:@PrintByte 59:@PrintByte 60:@PrintByte 61
   ElIF card=1 
-    @POS x,y:@PrintByte 28:@PrintByte 29:@PrintByte 30
-    @POS x,y+1:@PrintByte 62:@PrintByte 66:@PrintByte 64
-    @POS x,y+2:@PrintByte 62:@PrintByte 67:@PrintByte 64
-    @POS x,y+3:@PrintByte 59:@PrintByte 60:@PrintByte 61
+    @POS XXX,YYY:@PrintByte 28:@PrintByte 29:@PrintByte 30
+    @POS XXX,YYY+1:@PrintByte 62:@PrintByte 66:@PrintByte 64
+    @POS XXX,YYY+2:@PrintByte 62:@PrintByte 67:@PrintByte 64
+    @POS XXX,YYY+3:@PrintByte 59:@PrintByte 60:@PrintByte 61
     ElIF card=2 
-    @POS x,y:@PrintByte 28:@PrintByte 29:@PrintByte 30
-    @POS x,y+1:@PrintByte 62:@PrintByte 196:@PrintByte 64
-    @POS x,y+2:@PrintByte 62:@PrintByte 197:@PrintByte 64
-    @POS x,y+3:@PrintByte 59:@PrintByte 60:@PrintByte 61
+    @POS XXX,YYY:@PrintByte 28:@PrintByte 29:@PrintByte 30
+    @POS XXX,YYY+1:@PrintByte 62:@PrintByte 196:@PrintByte 64
+    @POS XXX,YYY+2:@PrintByte 62:@PrintByte 197:@PrintByte 64
+    @POS XXX,YYY+3:@PrintByte 59:@PrintByte 60:@PrintByte 61
   ElIF card=3 
-    @POS x,y:@PrintByte 28:@PrintByte 29:@PrintByte 30
-   @POS x,y+1:@PrintByte 62:@PrintByte 68:@PrintByte 64
-    @POS x,y+2:@PrintByte 62:@PrintByte 70:@PrintByte 64
-    @POS x,y+3:@PrintByte 59:@PrintByte 60:@PrintByte 61
+    @POS XXX,YYY:@PrintByte 28:@PrintByte 29:@PrintByte 30
+   @POS XXX,YYY+1:@PrintByte 62:@PrintByte 68:@PrintByte 64
+    @POS XXX,YYY+2:@PrintByte 62:@PrintByte 70:@PrintByte 64
+    @POS XXX,YYY+3:@PrintByte 59:@PrintByte 60:@PrintByte 61
   ElIF card=4 
-    @POS x,y:@PrintByte 28:@PrintByte 29:@PrintByte 30
-    @POS x,y+1:@PrintByte 62:@PrintByte 199:@PrintByte 64
-    @POS x,y+2:@PrintByte 62:@PrintByte 200:@PrintByte 64
-    @POS x,y+3:@PrintByte 59:@PrintByte 60:@PrintByte 61
+    @POS XXX,YYY:@PrintByte 28:@PrintByte 29:@PrintByte 30
+    @POS XXX,YYY+1:@PrintByte 62:@PrintByte 199:@PrintByte 64
+    @POS XXX,YYY+2:@PrintByte 62:@PrintByte 200:@PrintByte 64
+    @POS XXX,YYY+3:@PrintByte 59:@PrintByte 60:@PrintByte 61
   ElIF card=5 
-    @POS x,y:@PrintByte 28:@PrintByte 29:@PrintByte 30
-   @POS x,y+1:@PrintByte 62:@PrintByte 73:@PrintByte 64
-    @POS x,y+2:@PrintByte 62:@PrintByte 70:@PrintByte 64
-    @POS x,y+3:@PrintByte 59:@PrintByte 60:@PrintByte 61
+    @POS XXX,YYY:@PrintByte 28:@PrintByte 29:@PrintByte 30
+   @POS XXX,YYY+1:@PrintByte 62:@PrintByte 73:@PrintByte 64
+    @POS XXX,YYY+2:@PrintByte 62:@PrintByte 70:@PrintByte 64
+    @POS XXX,YYY+3:@PrintByte 59:@PrintByte 60:@PrintByte 61
   ElIF card=6 
-    @POS x,y:@PrintByte 28:@PrintByte 29:@PrintByte 30
-    @POS x,y+1:@PrintByte 62:@PrintByte 202:@PrintByte 64
-    @POS x,y+2:@PrintByte 62:@PrintByte 203:@PrintByte 64
-    @POS x,y+3:@PrintByte 59:@PrintByte 60:@PrintByte 61
+    @POS XXX,YYY:@PrintByte 28:@PrintByte 29:@PrintByte 30
+    @POS XXX,YYY+1:@PrintByte 62:@PrintByte 202:@PrintByte 64
+    @POS XXX,YYY+2:@PrintByte 62:@PrintByte 203:@PrintByte 64
+    @POS XXX,YYY+3:@PrintByte 59:@PrintByte 60:@PrintByte 61
   ElIF card=7 
-    @POS x,y:@PrintByte 204:@PrintByte 205:@PrintByte 206
-    @POS x,y+1:@PrintByte 207:@PrintByte 208:@PrintByte 209
-    @POS x,y+2:@PrintByte 210:@PrintByte 211:@PrintByte 212
-    @POS x,y+3:@PrintByte 213:@PrintByte 214:@PrintByte 215
+    @POS XXX,YYY:@PrintByte 204:@PrintByte 205:@PrintByte 206
+    @POS XXX,YYY+1:@PrintByte 207:@PrintByte 208:@PrintByte 209
+    @POS XXX,YYY+2:@PrintByte 210:@PrintByte 211:@PrintByte 212
+    @POS XXX,YYY+3:@PrintByte 213:@PrintByte 214:@PrintByte 215
   ElIF card=8 
-   @POS x,y:@PrintByte 97:@PrintByte 98:@PrintByte 99
-    @POS x,y+1:@PrintByte 100:@PrintByte 101:@PrintByte 102
-    @POS x,y+2:@PrintByte 103:@PrintByte 104:@PrintByte 105
-    @POS x,y+3:@PrintByte 106:@PrintByte 107:@PrintByte 108
-endif
+   @POS XXX,YYY:@PrintByte 97:@PrintByte 98:@PrintByte 99
+    @POS XXX,YYY+1:@PrintByte 100:@PrintByte 101:@PrintByte 102
+    @POS XXX,YYY+2:@PrintByte 103:@PrintByte 104:@PrintByte 105
+    @POS XXX,YYY+3:@PrintByte 106:@PrintByte 107:@PrintByte 108
+  endif
+ENDPROC
+
+PROC PrintCardLine _col _row _card
+  XXX=_col:YYY=_row:card=_card
+  IF card=0  
+    @POS XXX,YYY:@PrintByte 28:@PrintByte 29:@PrintByte 30
+    @POS XXX,YYY+1:@PrintByte 62:@PrintByte 63:@PrintByte 64
+    @POS XXX,YYY+2:@PrintByte 62:@PrintByte 63:@PrintByte 64
+    @POS XXX,YYY+3:@PrintByte 114:@PrintByte 115:@PrintByte 123
+  ElIF card=1 
+    @POS XXX,YYY:@PrintByte 28:@PrintByte 29:@PrintByte 30
+    @POS XXX,YYY+1:@PrintByte 62:@PrintByte 66:@PrintByte 64
+    @POS XXX,YYY+2:@PrintByte 62:@PrintByte 67:@PrintByte 64
+    @POS XXX,YYY+3:@PrintByte 114:@PrintByte 115:@PrintByte 123
+    ElIF card=2 
+    @POS XXX,YYY:@PrintByte 28:@PrintByte 29:@PrintByte 30
+    @POS XXX,YYY+1:@PrintByte 62:@PrintByte 196:@PrintByte 64
+    @POS XXX,YYY+2:@PrintByte 62:@PrintByte 197:@PrintByte 64
+    @POS XXX,YYY+3:@PrintByte 114:@PrintByte 115:@PrintByte 123
+  ElIF card=3 
+    @POS XXX,YYY:@PrintByte 28:@PrintByte 29:@PrintByte 30
+   @POS XXX,YYY+1:@PrintByte 62:@PrintByte 68:@PrintByte 64
+    @POS XXX,YYY+2:@PrintByte 62:@PrintByte 70:@PrintByte 64
+    @POS XXX,YYY+3:@PrintByte 114:@PrintByte 115:@PrintByte 123
+  ElIF card=4 
+    @POS XXX,YYY:@PrintByte 28:@PrintByte 29:@PrintByte 30
+    @POS XXX,YYY+1:@PrintByte 62:@PrintByte 199:@PrintByte 64
+    @POS XXX,YYY+2:@PrintByte 62:@PrintByte 200:@PrintByte 64
+    @POS XXX,YYY+3:@PrintByte 114:@PrintByte 115:@PrintByte 123
+  ElIF card=5 
+    @POS XXX,YYY:@PrintByte 28:@PrintByte 29:@PrintByte 30
+   @POS XXX,YYY+1:@PrintByte 62:@PrintByte 73:@PrintByte 64
+    @POS XXX,YYY+2:@PrintByte 62:@PrintByte 70:@PrintByte 64
+   @POS XXX,YYY+3:@PrintByte 114:@PrintByte 115:@PrintByte 123
+  ElIF card=6 
+    @POS XXX,YYY:@PrintByte 28:@PrintByte 29:@PrintByte 30
+    @POS XXX,YYY+1:@PrintByte 62:@PrintByte 202:@PrintByte 64
+    @POS XXX,YYY+2:@PrintByte 62:@PrintByte 203:@PrintByte 64
+    @POS XXX,YYY+3:@PrintByte 114:@PrintByte 115:@PrintByte 123
+  ElIF card=7 
+    @POS XXX,YYY:@PrintByte 204:@PrintByte 205:@PrintByte 206
+    @POS XXX,YYY+1:@PrintByte 207:@PrintByte 208:@PrintByte 209
+    @POS XXX,YYY+2:@PrintByte 210:@PrintByte 211:@PrintByte 212
+    @POS XXX,YYY+3:@PrintByte 114:@PrintByte 115:@PrintByte 123
+  ElIF card=8 
+   @POS XXX,YYY:@PrintByte 97:@PrintByte 98:@PrintByte 99
+    @POS XXX,YYY+1:@PrintByte 100:@PrintByte 101:@PrintByte 102
+    @POS XXX,YYY+2:@PrintByte 103:@PrintByte 104:@PrintByte 105
+   @POS XXX,YYY+3:@PrintByte 114:@PrintByte 115:@PrintByte 123
+  endif
 ENDPROC
 
 PROC PrintPlayerHand _col _row _numCards 
   if _numCards=0 then exit
-  x=_col:y=_row
+  XXX=_col:YYY=_row
   if _numCards>12 then _numCards=12
   for i=1 to _numCards
-  @POS (x+i)-1,y:@PrintByte 13:@PrintByte 14
-  @POS (x+i)-1,y+1:@PrintByte 15:@PrintByte 27
+  @POS (XXX+i)-1,YYY:@PrintByte 13:@PrintByte 14
+  @POS (XXX+i)-1,YYY+1:@PrintByte 15:@PrintByte 27
   next i
 ENDPROC
 
 PROC PrintPlayerScore _col _row _BlackTokens _WhiteTokens
-  x=_col:y=_row:bt=_BlackTokens:wt=_WhiteTokens
+  xx=_col:yy=_row:bt=_BlackTokens:wt=_WhiteTokens
   IF BT=0
-  @POS x,y:@PrintByte 1:@PrintByte 2:@PrintByte 2:@PrintByte 3
+  @POS xx,yy:@PrintByte 1:@PrintByte 2:@PrintByte 2:@PrintByte 3
   ELIF BT=1
-  @POS x,y:@PrintByte 4:@PrintByte 2:@PrintByte 2:@PrintByte 3
+  @POS xx,yy:@PrintByte 4:@PrintByte 2:@PrintByte 2:@PrintByte 3
   ELIF BT=2   
-  @POS x,y:@PrintByte 5:@PrintByte 2:@PrintByte 2:@PrintByte 3
+  @POS xx,yy:@PrintByte 5:@PrintByte 2:@PrintByte 2:@PrintByte 3
   ELIF BT=3                                               
-  @POS x,y:@PrintByte 6:@PrintByte 2:@PrintByte 2:@PrintByte 3
+  @POS xx,yy:@PrintByte 6:@PrintByte 2:@PrintByte 2:@PrintByte 3
   ENDIF
 
   IF WT=0
-    @POS x+1,y:@PrintByte 2:@PrintByte 2:@PrintByte 3
+    @POS xx+1,yy:@PrintByte 2:@PrintByte 2:@PrintByte 3
   ELIF WT=1
-    @POS x+1,y:@PrintByte 2:@PrintByte 2:@PrintByte 11
+    @POS xx+1,yy:@PrintByte 2:@PrintByte 2:@PrintByte 11
   ELIF WT=2   
-    @POS x+1,y:@PrintByte 2:@PrintByte 7:@PrintByte 11
+    @POS xx+1,yy:@PrintByte 2:@PrintByte 7:@PrintByte 11
   ELIF WT=3                                               
-    @POS x+1,y:@PrintByte 7:@PrintByte 7:@PrintByte 11
+    @POS xx+1,yy:@PrintByte 7:@PrintByte 7:@PrintByte 11
   ELIF WT=4
-    @POS x+1,y:@PrintByte 7:@PrintByte 8:@PrintByte 11
+    @POS xx+1,yy:@PrintByte 7:@PrintByte 8:@PrintByte 11
   ELIF WT=5   
-    @POS x+1,y:@PrintByte 8:@PrintByte 8:@PrintByte 11
+    @POS xx+1,yy:@PrintByte 8:@PrintByte 8:@PrintByte 11
   ELIF WT=6                                               
-    @POS x+1,y:@PrintByte 8:@PrintByte 8:@PrintByte 12  
+    @POS xx+1,yy:@PrintByte 8:@PrintByte 8:@PrintByte 12  
   ELIF WT=7
-    @POS x+1,y:@PrintByte 9:@PrintByte 8:@PrintByte 12
+    @POS xx+1,yy:@PrintByte 9:@PrintByte 8:@PrintByte 12
   ELIF WT=8   
-    @POS x+1,y:@PrintByte 9:@PrintByte 9:@PrintByte 12
+    @POS xx+1,yy:@PrintByte 9:@PrintByte 9:@PrintByte 12
   ELIF WT=9                                               
-    @POS x+1,y:@PrintByte 9:@PrintByte 10:@PrintByte 12
+    @POS xx+1,yy:@PrintByte 9:@PrintByte 10:@PrintByte 12
   ELIF WT=10                                               
-    @POS x+1,y:@PrintByte 10:@PrintByte 10:@PrintByte 12
+    @POS xx+1,yy:@PrintByte 10:@PrintByte 10:@PrintByte 12
   ENDIF
 ENDPROC
 
 PROC PrintDrawButton _col _row 
-  x=_col:y=_row
-  @POS x,y:@PrintByte 247:@PrintByte 248
-  @POS x,y+1:@PrintByte 249:@PrintByte 250
+  XXX=_col:YYY=_row
+  @POS XXX,YYY:@PrintByte 247:@PrintByte 248
+  @POS XXX,YYY+1:@PrintByte 249:@PrintByte 250
 ENDPROC
 
 PROC PrintFoldButton _col _row 
-  x=_col:y=_row
-  @POS x,y:@PrintByte 141:@PrintByte 142
-  @POS x,y+1:@PrintByte 143:@PrintByte 155
+  XXX=_col:YYY=_row
+  @POS XXX,YYY:@PrintByte 141:@PrintByte 142
+  @POS XXX,YYY+1:@PrintByte 143:@PrintByte 155
 ENDPROC
 
 PROC DrawPlayers 
@@ -1088,16 +1101,16 @@ PROC DrawPlayers
   inc SLOT
  endif
  Next a
- if PlayerHandCount(playerIndex)>0 then @printMainPlayerHand
+ if PlayerHandCount(playerIndex)>0 then @DrawPlayerHand Playerindex
 ENDPROC
 
 PROC DrawBorder _col _row _sizeX _sizeY _colour
   _X=_col:_Y=_row:Xsize=_sizex:Ysize=_sizey:colour=_colour
-  @POS _X,_Y:@PrintByte 114+colour
+  @POS _X,_Y:@PrintByte 119+colour
   For Xstep=_X+1 to _X+Xsize
   @POS Xstep,_Y:@PrintByte 32+colour
   Next Xstep
-  @POS Xstep,_Y:@PrintByte 115+colour
+  @POS Xstep,_Y:@PrintByte 120+colour
   
   For Ystep=_Y+1 to _Y+Ysize
   @POS _X,Ystep:@PrintByte 31+colour
@@ -1107,13 +1120,12 @@ PROC DrawBorder _col _row _sizeX _sizeY _colour
   @POS Xstep,Ystep:@PrintByte 31+colour
   Next Ystep
 
-  @POS _X,Ystep:@PrintByte 117+colour
+  @POS _X,Ystep:@PrintByte 121+colour
   For Xstep=_X+1 to _X+Xsize
   @POS Xstep,Ystep:@PrintByte 32+colour
   Next Xstep
-  @POS Xstep,Ystep:@PrintByte 123+colour
+  @POS Xstep,Ystep:@PrintByte 122+colour
 ENDPROC
-
 
 
 '-------------------------------------------------------------
