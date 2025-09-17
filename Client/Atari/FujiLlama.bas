@@ -473,8 +473,10 @@ PROC ShowResults
   GET K
   move$="R"
   @PlayMove
-  @POS 7,25:@Print &"STARTING NEXT ROUND PLEASE WAIT"
+  @POS 2,25:@Print &"PLEASE WAIT FOR NEXT ROUND TO START"
+  Repeat
   @readGameState
+  UNTIL GameStatus(tablenumber)=3 or GameStatus(tablenumber)=5
 ENDPROC
 
 PROC DrawPlayersResults 
@@ -486,8 +488,14 @@ PROC DrawPlayersResults
       if Xoffset>12 then Xoffset=12
       if Xoffset<9 then Xoffset=9
       @POS 0,Y+3: @Print &"@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
+      if PlayerStatus(aa)=3 and PlayerHand$(aa)<> ""
+        @POS X,Y: @PrintUpper &PlayerName$(aa)[1,Xoffset]: @Print &":"
+        @POS X+7,Y+1: @Print &"ROUND WINNER"
+        Xoffset=Xoffset+6
+      else
+        @POS X,Y: @PrintUpper &PlayerName$(aa)[1,Xoffset]:@Print &":"
+      Endif
       @DrawResultHands aa,Xoffset+2,Y
-      @POS X,Y: @PrintUpper &PlayerName$(aa)[1,Xoffset]:@Print &":"
       @printPlayerScore X+2,Y+1,PlayerBlackTokens(aa),PlayerWhiteTokens(aa)
       @POS X,Y+2: @Print &"SCORE:"
       @POS X+6,Y+2: @PrintVal PlayerScore(aa)
@@ -1024,7 +1032,7 @@ PROC PrintPlayerScore _col _row _BlackTokens _WhiteTokens
   @POS xx,yy:@PrintByte 4:@PrintByte 2:@PrintByte 2:@PrintByte 3
   ELIF BT=2   
   @POS xx,yy:@PrintByte 5:@PrintByte 2:@PrintByte 2:@PrintByte 3
-  ELIF BT=3                                               
+  ELIF BT>=3                                               
   @POS xx,yy:@PrintByte 6:@PrintByte 2:@PrintByte 2:@PrintByte 3
   ENDIF
 
@@ -1048,7 +1056,7 @@ PROC PrintPlayerScore _col _row _BlackTokens _WhiteTokens
     @POS xx+1,yy:@PrintByte 9:@PrintByte 9:@PrintByte 12
   ELIF WT=9                                               
     @POS xx+1,yy:@PrintByte 9:@PrintByte 10:@PrintByte 12
-  ELIF WT=10                                               
+  ELIF WT>=10                                               
     @POS xx+1,yy:@PrintByte 10:@PrintByte 10:@PrintByte 12
   ENDIF
 ENDPROC

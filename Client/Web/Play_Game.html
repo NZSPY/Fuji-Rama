@@ -72,8 +72,8 @@
         // Table 1 Combined for draw deck, player hand, and discard pile
        
         const currentPlayer = data.pls.find(p => p.n === playerName);
-        const blackCounters = currentPlayer ? currentPlayer.bc : 0;
-        const whiteCounters = currentPlayer ? currentPlayer.wc : 0;
+        const blackCounters = currentPlayer ? currentPlayer.bt : 0;
+        const whiteCounters = currentPlayer ? currentPlayer.wt : 0;
         const moves = currentPlayer ? currentPlayer.pvm : [];
         const score = (blackCounters*10) + whiteCounters;
         const DrawDeck = Array.isArray(data.dd) ? data.dd.join(', ') : data.dd;
@@ -175,14 +175,14 @@
                     // First column (even index)
                     const player1 = players[i * 2];
                     if (player1) {
-                        const score1 = (player1.bc * 10) + player1.wc;
+                        const score1 = (player1.bt * 10) + player1.wt;
                         const status1 = player1.s === 0 ? "Waiting" :
                                       player1.s === 1 ? "Playing" :
                                       player1.s === 2 ? "Folded" :
                                       player1.s === 3 ? "Won the round" : "UNKNOWN";
                         allTablesHtml += `
                             <td>
-                                <div>${player1.n} has ${player1.bc} Black and ${player1.wc} White Counters</div>
+                                <div>${player1.n} has ${player1.bt} Black and ${player1.wt} White Counters</div>
                                 <div>Score: ${score1} and is ${status1}</div>
                                 <div>${'<img src="LlamaCardBack.png" alt="Card Back" style="width:75px;">'.repeat(player1.nc)}</div>
                             </td>`;
@@ -191,14 +191,14 @@
                     // Second column (odd index)
                     const player2 = players[i * 2 + 1];
                     if (player2) {
-                        const score2 = (player2.bc * 10) + player2.wc;
+                        const score2 = (player2.bt * 10) + player2.wt;
                         const status2 = player2.s === 0 ? "Waiting" :
                                       player2.s === 1 ? "Playing" :
                                       player2.s === 2 ? "Folded" :
                                       player2.s === 3 ? "Won the round" : "UNKNOWN";
                         allTablesHtml += `
                             <td>
-                                <div>${player2.n} has ${player2.bc} Black and ${player2.wc} White Counters</div>
+                                <div>${player2.n} has ${player2.bt} Black and ${player2.wt} White Counters</div>
                                 <div>Score: ${score2} and is ${status2}</div>
                                 <div>${'<img src="LlamaCardBack.png" alt="Card Back" style="width:75px;">'.repeat(player2.nc)}</div>
                             </td>`;
@@ -319,7 +319,7 @@ function playCard(cardclicked) {
                 lastDataState = data;
                 timeLeft = 60;
             // Check if round is over
-            if (data.lmp && data.lmp.toString().substring(0, 4) === "(RE)") {
+            if (data.ts === 4) {
                 window.location.href = 'Round_Over.html?table=' + tableId + '&player=' + playerName;
             }
         }

@@ -33,23 +33,35 @@
         const tableId = urlParams.get('table') || 'default'; // Use 'default' as fallback
         const playerName = urlParams.get('player') || 'unknown'; // Use 'unknown' as fallback
         function fetchGameState() {
-            fetch(`http://192.168.68.100:8080/results?table=${tableId}&player=${playerName}`)
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    displayTable(data);
-                })
-                .catch(error => {
-                    console.error('Error fetching data:', error);
-                    const container = document.getElementById('tableContainer');
-                    container.innerHTML = `<p style="color: red;">Error loading data: ${error.message}</p>`;
-                });
-        
-            }
+            fetch(`http://192.168.68.100:8080/move?table=${tableId}&player=${playerName}&VM=R`)
+            .then(response => {
+                if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                displayTable(data);
+                // Second fetch after first one succeeds
+                return fetch(`http://192.168.68.100:8080/state?table=${tableId}&player=${playerName}`);
+            })
+            .then(response => {
+                if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                displayTable(data);
+            })
+            .catch(error => {
+                console.error('Error fetching data:', error);
+                const container = document.getElementById('tableContainer');
+                container.innerHTML = `<p style="color: red;">Error loading data: ${error.message}</p>`;
+            });
+        }
+
+
             function updateButton(msg1,msg2) {
             const button = document.getElementById('nextActionButton');
             if (msg2 != "") {
@@ -82,30 +94,15 @@ if (data.pls) {
     const message3 = Array.isArray(data.msg3) ? data.msg3 : [data.msg3];
    
    updateButton(message1,message2);
-    // Show message at top
-    allTablesHtml += `<tr><th colspan="3">${message1}<br>${message2}<br>${message3}</th></tr>`;
-
-    // Sort players by score in ascending order
-    const sortedPlayers = [...players].sort((a, b) => (a.s || 0) - (b.s || 0));
-
-    // Add leaderboard
-    allTablesHtml += '<tr><th colspan="3" style="text-align: center;">Leaderboard</th></tr>';
-    allTablesHtml += '<tr><th style="text-align: center;">Name</th><th style="text-align: center;">Current</th><th style="text-align: center;">Total</th></tr>';
-    sortedPlayers.forEach((player, index) => {
-        allTablesHtml += `<tr>
-            <td>${player.n}</td>
-            <td style="text-align: right">${player.rs || 0}</td>
-            <td style="text-align: right"><b>${player.s || 0}</b></td>
-        </tr>`;
-    });
+    
     allTablesHtml += '<table style="width: auto;">';
     // Find current player and other players
     const currentPlayer = players.find(p => p.n === playerName);
     const otherPlayers = players.filter(p => p.n !== playerName);
-
+    const currentPlayerScore = currentPlayer ? (currentPlayer.bt * 10) + currentPlayer.wt : 0;
     // Show current player's info first
     if (currentPlayer) {
-        allTablesHtml += `<tr><th colspan="2">${currentPlayer.n}'s cards are, ${currentPlayer.m1}</th></tr>`;
+        allTablesHtml += `<tr><th colspan="2">${currentPlayer.n} has ${currentPlayer.bt} black tokens and ${currentPlayer.wt} white tokens, and a total score of ${currentPlayerScore}</th></tr>`;
         let handHtml = '<td colspan="2">';
         if  (currentPlayer.ph) {
             currentPlayer.ph.split('').forEach(cardValue => {
@@ -124,21 +121,17 @@ if (data.pls) {
     for (let i = 0; i < otherPlayers.length; i += 2) {
         const player1 = otherPlayers[i];
         const player2 = otherPlayers[i + 1];
-
+        const player1Score = (player1.bt * 10) + player1.wt;
+        const player2Score = player2 ? (player2.bt * 10) + player2.wt : 0;
         // Player names
         allTablesHtml += '<tr>';
-        allTablesHtml += `<td>${player1.n}'s cards are, ${player1.m1}<br>${player1.m2}</td>`;
-        allTablesHtml += player2 ? `<td>${player2.n}'s cards are, ${player2.m1}<br>${player2.m2}</td>` : '<td></td>';
+        allTablesHtml += `<td>${player1.n} has ${player1.bt} black tokens and ${player1.wt} white tokens, and a total score of ${player1Score}</td>`;
+        allTablesHtml += player2 ? `<td>${player2.n} has ${player2.bt} black tokens and ${player2.wt} white tokens, and a total score of ${player2Score}</td>` : '<td></td>';
         allTablesHtml += '</tr>';
 
         // Player cards
         allTablesHtml += '<tr>';
-        // First player cards
-       // if (player1.ph) {
-       //     player1.ph.split('').forEach(cardValue => {
-       //         allTablesHtml += `<img src="LlamaCard${cardValue}.png" alt="Card ${cardValue}" style="width:75px; margin:2px;">`;
-       //     });
-       // }
+
         let hand1Html = '<td>';
         if  (player1.ph) {
             player1.ph.split('').forEach(cardValue => {

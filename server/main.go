@@ -384,7 +384,7 @@ func getGameState(c *gin.Context) {
 	}
 	// If the table is in round over status set all players valid moves to view results only
 	if gameStates[tableIndex].Table.Status == 4 {
-		SetEndofRoundMoves(tableIndex)
+		SetEndofRoundStatus(tableIndex)
 	}
 
 	elapsed := time.Since(gameStates[tableIndex].startTime)
@@ -477,9 +477,11 @@ func getGameState(c *gin.Context) {
 
 	// check if all players have viewed the results and reset the game state if so
 	if allViewed(tableIndex) && gameStates[tableIndex].RoundOver {
-		resetTable(tableIndex) // Reset the game state for a new round
 		fmt.Println("All players have viewed the results, resetting game for table", tables[tableIndex].Table)
+		resetTable(tableIndex) // Reset the game state for a new round
 		if gameStates[tableIndex].Gameover {
+			gameStates[tableIndex].Table.Status = 5 // Set the table status to game over
+			tables[tableIndex].Status = gameStates[tableIndex].Table.Status
 			resetGame(tableIndex) // Reset the game state for a new game
 		}
 	}
@@ -760,7 +762,7 @@ func EndofRoundScore(tableIndex int) {
 		fmt.Println("Scores have already been calculated for this round, skipping score calculation")
 		gameStates[tableIndex].LastMovePlayed = "Please view the results"
 		gameStates[tableIndex].Table.Status = 4
-		SetEndofRoundMoves(tableIndex)
+		SetEndofRoundStatus(tableIndex)
 		tables[tableIndex].Status = gameStates[tableIndex].Table.Status
 		return
 	}
@@ -813,14 +815,20 @@ func EndofRoundScore(tableIndex int) {
 	gameStates[tableIndex].LastMovePlayed = "Please view the results"
 	gameStates[tableIndex].RoundOver = true // Set the round over flag to true to prevent multiple score calculations
 	gameStates[tableIndex].Table.Status = 4
-	SetEndofRoundMoves(tableIndex)
+	SetEndofRoundStatus(tableIndex)
 	tables[tableIndex].Status = gameStates[tableIndex].Table.Status
 
 }
 
-func SetEndofRoundMoves(tableIndex int) {
+func SetEndofRoundStatus(tableIndex int) {
 	for i := 0; i < len(gameStates[tableIndex].Players); i++ {
 		gameStates[tableIndex].Players[i].ValidMove = "R" // Set valid moves to view results only
+		if i > 0 && gameStates[tableIndex].Players[i].RoundScore < gameStates[tableIndex].Players[i-1].RoundScore {
+			gameStates[tableIndex].Players[i].Status = STATUS_WON // set the player with lowest score as the round winner
+		}
+		if Status(gameStates[tableIndex].Players[i].Score) >= 40 {
+			gameStates[tableIndex].Gameover = true
+		}
 	}
 }
 
