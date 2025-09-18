@@ -62,15 +62,12 @@
         }
 
 
-            function updateButton(msg1,msg2) {
+            function updateButton (){
             const button = document.getElementById('nextActionButton');
-            if (msg2 != "") {
-                button.onclick = () => window.location.href = 'index.html';
-                button.textContent = 'Start a New Game';
-            } else {
-                button.onclick = () => window.location.href = 'Play_Game.html?table=' + tableId + '&player=' + playerName;
-                button.textContent = 'Play Next Round';
-            }
+           
+                button.onclick = () => window.location.href = 'Game_Over.html?table=' + tableId + '&player=' + playerName;
+                button.textContent = 'Continue';
+         
         }
 
 
@@ -89,20 +86,22 @@
 if (data.pls) {
     allTablesHtml += '<table style="width: auto;">';
     const players = Array.isArray(data.pls) ? data.pls : [data.pls];
-    const message1 = Array.isArray(data.msg1) ? data.msg1 : [data.msg1];
-    const message2 = Array.isArray(data.msg2) ? data.msg2 : [data.msg2];
-    const message3 = Array.isArray(data.msg3) ? data.msg3 : [data.msg3];
+   const message1 =  "Round Over";
+   const message2 =  "";
+
    
-   updateButton(message1,message2);
+   updateButton();
     
     allTablesHtml += '<table style="width: auto;">';
     // Find current player and other players
     const currentPlayer = players.find(p => p.n === playerName);
     const otherPlayers = players.filter(p => p.n !== playerName);
     const currentPlayerScore = currentPlayer ? (currentPlayer.bt * 10) + currentPlayer.wt : 0;
+     const status = currentPlayer.s === 3 ? "<B>!! Round Winner !!</B> " : "";
+                       
     // Show current player's info first
     if (currentPlayer) {
-        allTablesHtml += `<tr><th colspan="2">${currentPlayer.n} has ${currentPlayer.bt} black tokens and ${currentPlayer.wt} white tokens, and a total score of ${currentPlayerScore}</th></tr>`;
+        allTablesHtml += `<tr><th colspan="2">${status}${currentPlayer.n} has ${currentPlayer.bt} black tokens and ${currentPlayer.wt} white tokens, and a total score of ${currentPlayerScore}</th></tr>`;
         let handHtml = '<td colspan="2">';
         if  (currentPlayer.ph) {
             currentPlayer.ph.split('').forEach(cardValue => {
@@ -110,7 +109,7 @@ if (data.pls) {
                 handHtml += `<img src="LlamaCard${cardValue}.png" alt="Card ${cardValue}" style="width:100px; margin:2px;">`;
             });
         } else {
-            handHtml += 'No cards';
+            handHtml += '<B>Has no cards and is the Winner of the round!</B>';
         }
         handHtml += '</td>';
         allTablesHtml += `<tr>${handHtml}</tr>`;
@@ -123,10 +122,12 @@ if (data.pls) {
         const player2 = otherPlayers[i + 1];
         const player1Score = (player1.bt * 10) + player1.wt;
         const player2Score = player2 ? (player2.bt * 10) + player2.wt : 0;
+        const status1 = player1.s === 3 ? "<B>!! Round Winner !!</B> " : "";
+        const status2 = player2 ? (player2.s === 3 ? "<B>!! Round Winner !!</B> " : "") : "";
         // Player names
         allTablesHtml += '<tr>';
-        allTablesHtml += `<td>${player1.n} has ${player1.bt} black tokens and ${player1.wt} white tokens, and a total score of ${player1Score}</td>`;
-        allTablesHtml += player2 ? `<td>${player2.n} has ${player2.bt} black tokens and ${player2.wt} white tokens, and a total score of ${player2Score}</td>` : '<td></td>';
+        allTablesHtml += `<td>${status1}${player1.n} has ${player1.bt} black tokens and ${player1.wt} white tokens, and a total score of ${player1Score}</td>`;
+        allTablesHtml += player2 ? `<td>${status2}${player2.n} has ${player2.bt} black tokens and ${player2.wt} white tokens, and a total score of ${player2Score}</td>` : '<td></td>';
         allTablesHtml += '</tr>';
 
         // Player cards
@@ -138,7 +139,7 @@ if (data.pls) {
                 hand1Html += `<img src="LlamaCard${cardValue}.png" alt="Card ${cardValue}" style="width:75px; margin:2px;">`;
             });
         } else {
-            hand1Html += 'No cards';
+            hand1Html += '<B>You have no cards and are the Winner of this round!</B>';
         }
         hand1Html += '</td>';
         allTablesHtml += hand1Html;
@@ -151,7 +152,7 @@ if (data.pls) {
                 hand2Html += `<img src="LlamaCard${cardValue}.png" alt="Card ${cardValue}" style="width:75px; margin:2px;">`;
             }); 
             } else {
-                hand2Html += 'No cards';
+                hand2Html += '<B>Has no cards and is the Winner of the round!</B>';
             }
             hand2Html += '</td>';
             allTablesHtml += hand2Html;

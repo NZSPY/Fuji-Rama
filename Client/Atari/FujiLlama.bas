@@ -287,6 +287,9 @@ DO
     @ReadKeyPresses
     if GameStatus(tablenumber)=4 then @ShowResults
   UNTIL GameStatus(tablenumber)=5
+  @readGameState
+  move$="G"
+  @PlayMove
 LOOP
 
 @QuitGame

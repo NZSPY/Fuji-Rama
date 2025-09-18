@@ -50,11 +50,12 @@ var tables = []GameTable{
 type Status int
 
 const (
-	STATUS_WAITING Status = 0
-	STATUS_PLAYING Status = 1
-	STATUS_FOLDED  Status = 2
-	STATUS_WON     Status = 3 // Player has won the round
-	STATUS_VIEWED  Status = 4 // Player has the results of the round
+	STATUS_WAITING         Status = 0
+	STATUS_PLAYING         Status = 1
+	STATUS_FOLDED          Status = 2
+	STATUS_WON             Status = 3 // Player has won the round
+	STATUS_ROUND_VIEWED    Status = 4 // Player has the results of the round
+	STATUS_GAMEOVER_VIEWED Status = 5 // Player has the results of the end of game
 )
 
 // Deck represents a collection of cards.
@@ -129,7 +130,7 @@ func getTables(c *gin.Context) {
 			idleTableClose(i) // Close any tables with no human players
 		}
 		idlePlayerRemoval(i) // Remove any idle players from the tables
-		if allViewed(i) && gameStates[i].Gameover {
+		if allViewedGameOver(i) && gameStates[i].Gameover {
 			resetGame(i) // Reset the game state for a new game
 		}
 	}
@@ -382,10 +383,6 @@ func getGameState(c *gin.Context) {
 		gameStates[tableIndex].Players[playerIndex].LastPolledTime = time.Now()
 		gameStates[tableIndex].Players[playerIndex].ValidMove = setValidmoves(tableIndex, playerIndex)
 	}
-	// If the table is in round over status set all players valid moves to view results only
-	if gameStates[tableIndex].Table.Status == 4 {
-		SetEndofRoundStatus(tableIndex)
-	}
 
 	elapsed := time.Since(gameStates[tableIndex].startTime)
 
@@ -476,35 +473,43 @@ func getGameState(c *gin.Context) {
 	}
 
 	// check if all players have viewed the results and reset the game state if so
-	if allViewed(tableIndex) && gameStates[tableIndex].RoundOver {
-		fmt.Println("All players have viewed the results, resetting game for table", tables[tableIndex].Table)
-		resetTable(tableIndex) // Reset the game state for a new round
+	if allViewedResults(tableIndex) && gameStates[tableIndex].RoundOver {
 		if gameStates[tableIndex].Gameover {
+			SetEndofGameStatus(tableIndex)
+			fmt.Println("All players have viewed the results, Sorting for gameover", tables[tableIndex].Table)
 			gameStates[tableIndex].Table.Status = 5 // Set the table status to game over
 			tables[tableIndex].Status = gameStates[tableIndex].Table.Status
-			resetGame(tableIndex) // Reset the game state for a new game
+		} else {
+			fmt.Println("All players have viewed the results, resetting game for table", tables[tableIndex].Table)
+			resetTable(tableIndex) // Reset the game state for a new round
 		}
+	}
+
+	// check if all players have viewed the results and reset the game state if so
+	if allViewedGameOver(tableIndex) && gameStates[tableIndex].Gameover {
+		fmt.Println("All players have viewed the final results, resetting game for table", tables[tableIndex].Table)
+		resetGame(tableIndex) // Reset the game state for a new game
 	}
 
 	idlePlayerChange(tableIndex)
 }
 
-// check if any human players have disconnected ? (IE not polled the game state for over 2 minutes) and turn them into AI players
+// check if any human players have disconnected ? (IE not polled the game state for over 5 minutes) and turn them into AI players
 func idlePlayerChange(tableIndex int) {
 	for i := 0; i < len(gameStates[tableIndex].Players); i++ {
 		player := &gameStates[tableIndex].Players[i]
-		if time.Since(player.LastPolledTime) > 2*time.Minute && player.Human {
+		if time.Since(player.LastPolledTime) > 5*time.Minute && player.Human {
 			gameStates[tableIndex].Players[i].Human = false                                         // Change the player to an AI player
 			gameStates[tableIndex].Players[i].Name = gameStates[tableIndex].Players[i].Name + "-AI" // Change the player name to indicate they are now an AI player
 		}
 	}
 }
 
-// check if any human players have disconnected (IE not polled the game state for over 2 minutes) and remove them from the table
+// check if any human players have disconnected (IE not polled the game state for over 10 minutes) and remove them from the table
 func idlePlayerRemoval(tableIndex int) {
 	for i := 0; i < len(gameStates[tableIndex].Players); i++ {
 		player := &gameStates[tableIndex].Players[i]
-		if time.Since(player.LastPolledTime) > 2*time.Minute && player.Human {
+		if time.Since(player.LastPolledTime) > 10*time.Minute && player.Human {
 			// Remove the player from the table
 			gameStates[tableIndex].Players = append(gameStates[tableIndex].Players[:i], gameStates[tableIndex].Players[i+1:]...)
 			gameStates[tableIndex].Table.CurPlayers--
@@ -538,8 +543,16 @@ func findPlayerIndex(tableIndex int, playerName string) int {
 
 // checks the player's hand and returns a string of valid moves possible for that player
 func setValidmoves(tableIndex int, playerIndex int) string {
-
 	validMoves := ""
+
+	if gameStates[tableIndex].Table.Status == 4 { // If the round is over, players can only view results
+		return "R" // Player can view results
+	}
+
+	if gameStates[tableIndex].Table.Status == 5 { // If the Game is over, players can only view game over re
+		return "G" // Player can view results
+	}
+
 	if gameStates[tableIndex].Players[playerIndex].Status == STATUS_PLAYING {
 		// Check if any card in hand matches or is higher than discard pile
 		for _, card := range gameStates[tableIndex].Players[playerIndex].Hand {
@@ -592,6 +605,7 @@ func doVaildMoveURL(c *gin.Context) {
 
 	// Find the player and check their status
 	playerName := c.Query("player")
+	move := c.Query("VM") // Valid Move (e.g., "P", "N", "D", "F","R","G")
 	var playerFound bool
 	var validMoves string
 	playerIndex := -1
@@ -602,11 +616,17 @@ func doVaildMoveURL(c *gin.Context) {
 			playerFound = true
 			playerIndex = i // Store the index of the player
 			validMoves = player.ValidMove
-			if player.Status != STATUS_PLAYING && player.ValidMove != "R" {
+			if player.Status != STATUS_PLAYING {
 
-				c.JSON(http.StatusBadRequest, "It's not your turn to play")
+				if validMoves == "R" || validMoves == "G" {
+					// If the player is allowed to view results, let them proceed
 
-				return
+				} else {
+
+					c.JSON(http.StatusBadRequest, "It's not your turn to play")
+
+					return
+				}
 			}
 		}
 	}
@@ -617,7 +637,6 @@ func doVaildMoveURL(c *gin.Context) {
 		return
 	}
 
-	move := c.Query("VM") // Valid Move (e.g., "P", "N", "D", "F","R")
 	if playerName == "" || move == "" {
 
 		c.JSON(http.StatusBadRequest, "Must specify both player name and move")
@@ -661,7 +680,11 @@ func doVaildMove(tableIndex int, playerIndex int, move string) {
 		gameStates[tableIndex].Players[playerIndex].Status = STATUS_FOLDED
 		gameStates[tableIndex].EndedLast = playerIndex
 	case "R": // Viewed the results of the round
-		gameStates[tableIndex].Players[playerIndex].Status = STATUS_VIEWED
+		gameStates[tableIndex].Players[playerIndex].Status = STATUS_ROUND_VIEWED
+		gameStates[tableIndex].Players[playerIndex].ValidMove = "G" // Set valid move to view game over results only
+		return
+	case "G": // Viewed the gameover screens
+		gameStates[tableIndex].Players[playerIndex].Status = STATUS_GAMEOVER_VIEWED
 		gameStates[tableIndex].Players[playerIndex].ValidMove = ""
 		return
 	}
@@ -761,7 +784,7 @@ func EndofRoundScore(tableIndex int) {
 	if gameStates[tableIndex].RoundOver {
 		fmt.Println("Scores have already been calculated for this round, skipping score calculation")
 		gameStates[tableIndex].LastMovePlayed = "Please view the results"
-		gameStates[tableIndex].Table.Status = 4
+		//gameStates[tableIndex].Table.Status = 4
 		SetEndofRoundStatus(tableIndex)
 		tables[tableIndex].Status = gameStates[tableIndex].Table.Status
 		return
@@ -823,134 +846,59 @@ func EndofRoundScore(tableIndex int) {
 func SetEndofRoundStatus(tableIndex int) {
 	for i := 0; i < len(gameStates[tableIndex].Players); i++ {
 		gameStates[tableIndex].Players[i].ValidMove = "R" // Set valid moves to view results only
-		if i > 0 && gameStates[tableIndex].Players[i].RoundScore < gameStates[tableIndex].Players[i-1].RoundScore {
-			gameStates[tableIndex].Players[i].Status = STATUS_WON // set the player with lowest score as the round winner
-		}
 		if Status(gameStates[tableIndex].Players[i].Score) >= 40 {
 			gameStates[tableIndex].Gameover = true
 		}
 	}
+	SortByRoundScore(tableIndex)
+	gameStates[tableIndex].Players[0].Status = STATUS_WON
+	setPlayorOrder(tableIndex)
+
 }
 
-/*
-func getResults(c *gin.Context) {
-
-	tableIndex, ok := getTableIndex(c)
-	if !ok { // If no table is specified or invalid table index, return an error
-
-		c.JSON(http.StatusNotFound, "ERR(1) Must specify a valid table")
-
-		return
+func SetEndofGameStatus(tableIndex int) {
+	for i := 0; i < len(gameStates[tableIndex].Players); i++ {
+		gameStates[tableIndex].Players[i].ValidMove = "G" // Set valid moves to view results only
 	}
+	SortByFinalScore(tableIndex)
+	gameStates[tableIndex].Players[0].Status = STATUS_WON
 
-	// Check if the round is over
-	if !gameStates[tableIndex].RoundOver {
-		c.JSON(http.StatusNotFound, "ERR(8) Sorry: table "+tables[tableIndex].Table+" round is not over yet, please wait until the round has ended before checking results")
-		return
-	}
+}
 
-	// Check there are players is at this table
-	if gameStates[tableIndex].Table.CurPlayers == 0 {
-		c.JSON(http.StatusNotFound, "ERR(9) Sorry: table "+tables[tableIndex].Table+" has no human players, please join the table before checking results")
-		return
-	}
+func SortByRoundScore(tableIndex int) {
 
-	// Find the player and check their status
-	playerName := c.Query("player")
-	var playerFound bool
-	playerIndex := -1
-	i := -1
-	for _, player := range gameStates[tableIndex].Players {
-		i++
-		if player.Name == playerName {
-			playerFound = true
-			playerIndex = i // Store the index of the player
-		}
-	}
-
-	if !playerFound {
-
-		c.JSON(http.StatusBadRequest, "Player not found at this table")
-
-		return
-	}
-
-	// Create player state info for all players at table
-	playerStates := make([]struct {
-		PlayerName  string `json:"n"`
-		HandSummary string `json:"ph"`
-		Message1    string `json:"m1"`
-		Message2    string `json:"m2"`
-		RoundScore  int    `json:"rs"`
-		Score       int    `json:"s"`
-	}, len(gameStates[tableIndex].Players))
-
-	for i, player := range gameStates[tableIndex].Players {
-		playerStates[i] = struct {
-			PlayerName  string `json:"n"`
-			HandSummary string `json:"ph"`
-			Message1    string `json:"m1"`
-			Message2    string `json:"m2"`
-			RoundScore  int    `json:"rs"`
-			Score       int    `json:"s"`
-		}{
-			PlayerName:  player.Name,
-			HandSummary: makeHandSummary(tableIndex, i),
-			Message1:    player.Message1,
-			Message2:    player.Message2,
-			RoundScore:  player.RoundScore,
-			Score:       player.Score,
-		}
-	}
-	// Sort by score, this will sort the players by their score in ascending order
-	sort.SliceStable(playerStates[:], func(i, j int) bool {
-		return playerStates[i].RoundScore < playerStates[j].RoundScore
+	sort.SliceStable(gameStates[tableIndex].Players[:], func(i, j int) bool {
+		return gameStates[tableIndex].Players[i].RoundScore < gameStates[tableIndex].Players[j].RoundScore
 	})
-	fmt.Println("Results for table", tables[tableIndex].Table)
-
-	// Check if any player has lost the game by reaching 40 points
-	message2 := ""
-	message3 := ""
-	for _, player := range gameStates[tableIndex].Players {
-		if player.Score >= 40 {
-			fmt.Println("The game is over: ", player.Name, "is busted ", player.Score)
-			fmt.Println("-------------End Game totals  ------------------")
-			message2 = "The game is over: " + player.Name + " is busted with " + strconv.Itoa(player.Score) + " points"
-			sort.SliceStable(playerStates[:], func(i, j int) bool {
-				return playerStates[i].Score < playerStates[j].Score
-			})
-			message3 = "Winner of the game is " + playerStates[0].PlayerName + " with a score of " + strconv.Itoa(playerStates[0].Score)
-			gameStates[tableIndex].Gameover = true
-			break
-		}
-	}
-
-	// Create simplified game state with player scores
-	results := struct {
-		Message1 string      `json:"msg1"`
-		Message2 string      `json:"msg2"`
-		Message3 string      `json:"msg3"`
-		Players  interface{} `json:"pls"`
-	}{
-		Message1: playerStates[0].PlayerName + " Won this round with a score of " + strconv.Itoa(playerStates[0].RoundScore),
-		Message2: message2,
-		Message3: message3,
-		Players:  playerStates,
-	}
-
-	c.JSON(http.StatusOK, results)
-	gameStates[tableIndex].Players[playerIndex].Status = STATUS_VIEWED // Set the requesting player's status to viewed
 }
-*/
+
+func SortByFinalScore(tableIndex int) {
+
+	sort.SliceStable(gameStates[tableIndex].Players[:], func(i, j int) bool {
+		return gameStates[tableIndex].Players[i].Score < gameStates[tableIndex].Players[j].Score
+	})
+}
 
 // Check if all human players have viewed the results
-func allViewed(tableIndex int) bool {
+func allViewedResults(tableIndex int) bool {
 	allViewed := true
 	for _, player := range gameStates[tableIndex].Players {
-		if player.Status != STATUS_VIEWED && player.Human {
+		if player.Status != STATUS_ROUND_VIEWED && player.Human {
 			allViewed = false
 			break
-		} // Return the move
+		}
+	}
+	return allViewed
+}
+
+// Check if all human players have viewed Game Over Screen
+func allViewedGameOver(tableIndex int) bool {
+	allViewed := true
+	for _, player := range gameStates[tableIndex].Players {
+		if player.Status != STATUS_GAMEOVER_VIEWED && player.Human {
+			allViewed = false
+			break
+		}
 	}
 	return allViewed
 }
