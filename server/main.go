@@ -2,8 +2,10 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"math/rand"
 	"net/http"
+	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -89,6 +91,16 @@ type Player struct {
 type Players []Player
 
 func main() {
+	log.Print("Starting server...")
+
+	// Determine port for HTTP service.
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+
+	log.Printf("Listing on port %s", port)
+
 	// Initialize the tables and game states
 	for i := 0; i < len(gameStates); i++ {
 		gameStates[i] = GameState{Table: tables[i],
@@ -117,8 +129,9 @@ func main() {
 	// Set up router and start server
 	router.SetTrustedProxies(nil) // Disable trusted proxies because Gin told me to do it.. (neeed to investigate this further)
 	//router.Run("localhost:8080")
-	router.Run("192.168.68.100:8080") // put your server address here
-
+	//router.Run("192.168.68.100:8080") // put your server address here
+	//router.Run("https://fuji-llama-971660789205.asia-southeast1.run.app") // put your server address here") // put your server address here
+	router.Run(":" + port)
 }
 
 // getTables responds with the list of all tables  as JSON.
@@ -784,7 +797,6 @@ func EndofRoundScore(tableIndex int) {
 	if gameStates[tableIndex].RoundOver {
 		fmt.Println("Scores have already been calculated for this round, skipping score calculation")
 		gameStates[tableIndex].LastMovePlayed = "Please view the results"
-		//gameStates[tableIndex].Table.Status = 4
 		SetEndofRoundStatus(tableIndex)
 		tables[tableIndex].Status = gameStates[tableIndex].Table.Status
 		return
