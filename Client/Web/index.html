@@ -71,6 +71,16 @@
                         headerRow.appendChild(th);
                     });
     
+                    // Define status codes mapping
+                    const statusMap = {
+                        '0': 'Empty',
+                        '1': 'Full',
+                        '2': 'Waiting',
+                        '3': 'Playing',
+                        '4': 'Round Over',
+                        '5': 'Game Over'
+                    };
+
                     // Populate table rows with click functionality
                     data.forEach(item => {
                         const row = document.createElement('tr');
@@ -81,10 +91,10 @@
                             updateJoinButton(item.n);
                         });
                         
-                        // Skip first value when creating cells
-                        Object.values(item).slice(1).forEach(value => {
+                        // Create cells with status conversion
+                        Object.entries(item).slice(1).forEach(([key, value]) => {
                             const td = document.createElement('td');
-                            td.textContent = value;
+                            td.textContent = key === 's' ? statusMap[value] || value : value;
                             row.appendChild(td);
                         });
                         
@@ -131,9 +141,10 @@ function openTableAndRefresh() {
     var tableId = document.getElementById('tableID').value;
     var playerName = document.getElementById('playerName').value;
     fetch('https://fuji-llama-971660789205.asia-southeast1.run.app/join?table=' + tableId + '&player=' + playerName)
-        .then(response => {
+        .then(async response => {
             if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                const errorData = await response.text();
+                throw new Error(`HTTP error! status: ${response.status}, message: ${errorData}`);
             }
             return response.json();
         })

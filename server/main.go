@@ -128,9 +128,7 @@ func main() {
 
 	// Set up router and start server
 	router.SetTrustedProxies(nil) // Disable trusted proxies because Gin told me to do it.. (neeed to investigate this further)
-	//router.Run("localhost:8080")
-	//router.Run("192.168.68.100:8080") // put your server address here
-	//router.Run("https://fuji-llama-971660789205.asia-southeast1.run.app") // put your server address here") // put your server address here
+
 	router.Run(":" + port)
 }
 
