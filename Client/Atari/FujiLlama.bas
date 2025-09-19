@@ -298,9 +298,7 @@ DO
     @ReadKeyPresses
     if GameStatus(tablenumber)=4 then @ShowResults
   UNTIL GameStatus(tablenumber)=5
-  @readGameState
-  move$="G"
-  @PlayMove
+  @ShowGameOver
 LOOP
 
 @QuitGame
@@ -495,6 +493,47 @@ PROC ShowResults
   Repeat
   @readGameState
   UNTIL GameStatus(tablenumber)=3 or GameStatus(tablenumber)=5
+ENDPROC
+
+PROC ShowGameOver
+  @EnableDoubleBuffer
+  @ResetScreen
+  @POS 2,0: @Print &"GAME OVER - FINAL SCORES"
+  @POS 0,1: @PrintINV &"@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
+  @DrawFinalResults
+  @POS 7,25:@Print &"PRESS ANY KEY TO CONTINUE"
+  @DrawBufferEnd
+  @ShowScreen
+  GET K
+  move$="G"
+  @PlayMove
+  @POS 0,25:@Print &"PLEASE WAIT RETURNING TO TABLE SELECTION"
+  @readGameState
+  @readGameState
+ENDPROC
+
+PROC DrawFinalResults 
+  ' Draw the players Results on the screen
+  X=1:Y=2:loser=0
+  For aa=0 to 5
+    if PlayerName$(aa)<>""
+    if aa=0 
+      @POS X,Y: @PrintUpper &PlayerName$(aa)[1,12]:@Print &" IS THE WINNER WITH A SCORE OF ":@PrintVal PlayerScore(aa)
+    else
+      @POS X,Y: @PrintUpper &PlayerName$(aa)[1,12]:@Print &" SCORE:":@PrintVal PlayerScore(aa)
+    endif
+      @POS 0,Y+1: @Print &"@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
+      Y=Y+2
+      loser=aa
+    endif
+  next aa
+  Y=Y-2
+  @POS 0,Y+1: @Print &   "                                        "
+  @POS X,Y: @PrintUpper &PlayerName$(loser)[1,12]:@Print &" BUSTED ENDING THE GAME"
+  @POS X,Y+1:@Print &"WITH A SCORE OF ":@PrintVal PlayerScore(loser)
+  @POS X,Y+2:@Print &"SO IS THE LOSER"
+  @POS 0,Y+3: @PrintINV &"@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
+
 ENDPROC
 
 PROC DrawPlayersResults 
