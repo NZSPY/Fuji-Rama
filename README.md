@@ -15,3 +15,5 @@ and be playable on multiply different 8 bit computers
 I'm an Atarian, so will be writing the client for the Atari 8 bit computers first and hopefully 
 someone else will decide to write it for other platforms as time goes on.
 
+You can try the Web client by usign the following URL
+https://nzspy.github.io/Fuji-Llama/Client/Web/index.html
