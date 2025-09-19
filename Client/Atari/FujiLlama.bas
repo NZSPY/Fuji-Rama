@@ -262,7 +262,7 @@ poke 65,0
 
 
 ' --------- Main program -----------------------------
-'POKE 731,0 ' Turn on keyclick
+POKE 731,255 ' Turn off keyclick
 TIMER
 WaitTime=Time
 @InitScreen
@@ -283,9 +283,18 @@ DO
     ENDIF
     @ReadKeyPresses
   UNTIL GameStatus(tablenumber)=3
+      @readGameState
+      @DrawGameState
   REPEAT ' loop until the round ends
-    @readGameState
-    @DrawGameState
+      if playerStatus(PlayerIndex)=1 and Time>1500
+          TIMER
+          @readGameState
+          @DrawGameState
+      ENDIF
+      if playerStatus(PlayerIndex)<>1
+          @readGameState
+          @DrawGameState
+      ENDIF
     @ReadKeyPresses
     if GameStatus(tablenumber)=4 then @ShowResults
   UNTIL GameStatus(tablenumber)=5
@@ -463,7 +472,11 @@ PROC CheckVaildMove _move
       next b
     ENDIF
   Next a
-  if Move$<>"" then @PlayMove
+  if Move$<>"" 
+    @PlayMove
+    @readGameState
+    @DrawGameState
+  ENDIF
 ENDPROC
 
 PROC ShowResults
