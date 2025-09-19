@@ -30,7 +30,7 @@
     const tableId = urlParams.get('table') || 'default'; // Use 'default' as fallback
     let playerName = urlParams.get('player') || 'unknown'; // Use 'unknown' as fallback
     function fetchGameState() {
-        fetch(`http://192.168.68.100:8080/state?table=${tableId}&player=${playerName}`)
+        fetch(`https://fuji-llama-971660789205.asia-southeast1.run.app/state?table=${tableId}&player=${playerName}`)
         .then(response => {
             if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
@@ -217,7 +217,7 @@ function playCard(cardclicked) {
     const card = cardclicked;
     
 
-            fetch('http://192.168.68.100:8080/move?table=' + tableId + '&player=' + playerName + "&VM="+cardclicked)
+            fetch('https://fuji-llama-971660789205.asia-southeast1.run.app/move?table=' + tableId + '&player=' + playerName + "&VM="+cardclicked)
             .then(response => {
                 if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
@@ -235,7 +235,7 @@ function playCard(cardclicked) {
 
 
         function moveDraw() {
-            fetch('http://192.168.68.100:8080/move?table=' + tableId + '&player=' + playerName+ "&VM=D")
+            fetch('https://fuji-llama-971660789205.asia-southeast1.run.app/move?table=' + tableId + '&player=' + playerName+ "&VM=D")
             .then(response => {
                 if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
@@ -251,7 +251,7 @@ function playCard(cardclicked) {
         }
 
         function moveFold() {
-            fetch('http://192.168.68.100:8080/move?table=' + tableId + '&player=' + playerName+ "&VM=F")
+            fetch('https://fuji-llama-971660789205.asia-southeast1.run.app/move?table=' + tableId + '&player=' + playerName+ "&VM=F")
             .then(response => {
                 if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
@@ -267,7 +267,7 @@ function playCard(cardclicked) {
         }
 
         function startGame() {
-            fetch('http://192.168.68.100:8080/start?table=' + tableId)
+            fetch('https://fuji-llama-971660789205.asia-southeast1.run.app/start?table=' + tableId)
             .then(response => {
                 if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
@@ -309,7 +309,7 @@ function playCard(cardclicked) {
     // Smooth refresh every second
     setInterval(async () => {
         try {
-            const response = await fetch(`http://192.168.68.100:8080/state?table=${tableId}&player=${playerName}`);
+            const response = await fetch(`https://fuji-llama-971660789205.asia-southeast1.run.app/state?table=${tableId}&player=${playerName}`);
             if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
             const data = await response.json();
             

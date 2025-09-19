@@ -46,7 +46,7 @@
 <script>
     document.addEventListener('DOMContentLoaded', () => {
         const tableBody = document.getElementById('dataTableBody');
-        const apiUrl = 'http://192.168.68.100:8080/tables';
+        const apiUrl = 'https://fuji-llama-971660789205.asia-southeast1.run.app/tables';
     
         async function fetchDataAndPopulateTable() {
             try {
@@ -130,7 +130,7 @@
 function openTableAndRefresh() {
     var tableId = document.getElementById('tableID').value;
     var playerName = document.getElementById('playerName').value;
-    fetch('http://192.168.68.100:8080/join?table=' + tableId + '&player=' + playerName)
+    fetch('https://fuji-llama-971660789205.asia-southeast1.run.app/join?table=' + tableId + '&player=' + playerName)
         .then(response => {
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
