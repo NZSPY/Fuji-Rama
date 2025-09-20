@@ -289,11 +289,11 @@ DO
       if playerStatus(PlayerIndex)=1 and Time>1500
           TIMER
           @readGameState
-          @DrawGameState
+          if LastMovePlayed$<>PreviousLastMovePlayed$ then @DrawGameState
       ENDIF
       if playerStatus(PlayerIndex)<>1
           @readGameState
-          @DrawGameState
+         if LastMovePlayed$<>PreviousLastMovePlayed$ then @DrawGameState
       ENDIF
     @ReadKeyPresses
     if GameStatus(tablenumber)=4 then @ShowResults
@@ -493,6 +493,7 @@ PROC ShowResults
   Repeat
   @readGameState
   UNTIL GameStatus(tablenumber)=3 or GameStatus(tablenumber)=5
+  @DrawGameState
 ENDPROC
 
 PROC ShowGameOver
@@ -547,7 +548,7 @@ PROC DrawPlayersResults
       @POS 0,Y+3: @Print &"@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
       if PlayerStatus(aa)=3 and PlayerHand$(aa)<> ""
         @POS X,Y: @PrintUpper &PlayerName$(aa)[1,Xoffset]: @Print &":"
-        @POS X+7,Y+1: @Print &"ROUND WINNER"
+        @POS X+9,Y+1: @Print &"ROUND WINNER"
         Xoffset=Xoffset+6
       else
         @POS X,Y: @PrintUpper &PlayerName$(aa)[1,Xoffset]:@Print &":"
@@ -767,6 +768,7 @@ PROC ReadGameState
   @NInputInit UNIT, &responseBuffer ' Initialize reading the api response
   @NInput &dummy$ ' Read the response from the FujiNet API
   @checkErrors
+  PreviousLastMovePlayed$=LastMovePlayed$
   if ok <>1 then Exit 
   @NInput &dummy$
   Drawdeck=VAL(dummy$)
@@ -788,6 +790,7 @@ PROC ReadGameState
     EXIT
   ENDIF
   loop 
+  if LastMovePlayed$=PreviousLastMovePlayed$ then exit
   @NInput &dummy$ ' Read the Start of the Player Array
   INDEX=0
   do ' Loop reading key/value pairs until we reach the Start of the Player Array
