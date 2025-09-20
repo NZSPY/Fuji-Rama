@@ -153,11 +153,11 @@ data byte = 255,252,240,240,192,192,192,0,
 data byte = 255,63,15,15,3,3,3,0,
 data byte = 0,192,192,192,240,240,252,255,
 data byte = 0,3,3,3,15,15,63,255,
-data byte = 255,252,240,240,192,192,192,0,
+data byte = 10,47,191,181,183,183,183,183,
 data byte = 12,12,12,12,252,252,12,12,
 data byte = 12,12,12,12,15,15,12,12,
 data byte = 0,0,0,0,255,255,12,12,
-data byte = 0,48,116,220,220,220,116,48,
+data byte = 128,224,248,248,120,120,120,120,
 data byte = 5,21,31,31,126,126,126,126,
 data byte = 85,85,255,239,238,238,238,238,
 data byte = 64,80,208,212,244,244,244,244,
@@ -178,7 +178,7 @@ data byte = 16,48,184,236,236,236,184,48,
 data byte = 106,106,106,106,255,255,0,0,
 data byte = 170,170,170,170,255,255,0,0,
 data byte = 0,0,0,0,0,32,32,128,
-data byte = 0,32,236,184,184,184,236,32,
+data byte = 183,183,183,183,181,191,47,10,
 data byte = 0,0,0,80,0,0,0,0,
 data byte = 0,0,0,0,15,15,12,12,
 data byte = 0,0,0,0,252,252,12,12,
@@ -188,7 +188,7 @@ data byte = 164,164,164,164,255,255,0,0,
 data byte = 0,8,8,32,32,32,128,128,
 data byte = 0,0,0,0,168,0,0,0,
 data byte = 12,12,12,12,255,255,0,0,
-data byte = 0,0,0,0,0,0,0,0
+data byte = 120,120,120,120,248,248,224,128
 
 ' DLI Colors 
 data background_color()B.=$0,0,0
@@ -222,7 +222,7 @@ next i
 ok=0
 ' Player and table selection variables
 TableNumber=0
-myName$="SIMON" ' Default name will get this from App key when I learn how to do that
+myName$="TESTER" ' Default name will get this from App key when I learn how to do that
 gameover=0
 shown=0
 
@@ -293,7 +293,7 @@ DO
       ENDIF
       if playerStatus(PlayerIndex)<>1
           @readGameState
-         if LastMovePlayed$<>PreviousLastMovePlayed$ then @DrawGameState
+         @DrawGameState
       ENDIF
     @ReadKeyPresses
     if GameStatus(tablenumber)=4 then @ShowResults
@@ -790,7 +790,7 @@ PROC ReadGameState
     EXIT
   ENDIF
   loop 
-  if LastMovePlayed$=PreviousLastMovePlayed$ then exit
+  if LastMovePlayed$=PreviousLastMovePlayed$ and playerStatus(PlayerIndex)=1 then exit
   @NInput &dummy$ ' Read the Start of the Player Array
   INDEX=0
   do ' Loop reading key/value pairs until we reach the Start of the Player Array
@@ -941,7 +941,7 @@ PROC DrawGameState
   if PlayerStatus(PlayerIndex)=1 
   @POS 1,24: @PrintUpper & LastMovePlayed$[1,23]
   @Print &", YOUR TURN NOW"
-  @POS 2,20: @Print &"DRAW"
+  @printDrawButton 2,20
   @printFoldButton 37,20
   ENDIF
   @DrawBufferEnd
@@ -1123,8 +1123,8 @@ ENDPROC
 
 PROC PrintDrawButton _col _row 
   XXX=_col:YYY=_row
-  @POS XXX,YYY:@PrintByte 247:@PrintByte 248
-  @POS XXX,YYY+1:@PrintByte 249:@PrintByte 250
+  @POS XXX,YYY:@PrintByte 220:@PrintByte 224
+  @POS XXX,YYY+1:@PrintByte 245:@PrintByte 255
 ENDPROC
 
 PROC PrintFoldButton _col _row 
