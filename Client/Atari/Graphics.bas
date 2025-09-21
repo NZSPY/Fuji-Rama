@@ -197,7 +197,7 @@ myName$=""
 
 
 ' SIO command to $70 command 'S', DSTATS $40, DBYT $04, DBUF 
-
+POKE 731,255 ' Turn off keyclick
 
 
 @InitScreen
@@ -247,14 +247,20 @@ myName$=""
 @printPlayerScore 20,14,0,10
 
 @DrawBorder 3,3,25,15,128
-Repeat
-K=key()
-@POS 1,5:@PrintVal K
-UNTIL K=227
+'Repeat
+'K=key()
+'@POS 1,5:@PrintVal K
+'UNTIL K=227
 
 Repeat
-@CycleColorTheme
+'@CycleColorTheme
 Get K
+if K<85
+  @GoodBeep
+Else  
+  @BadBeep
+endif
+@POS 1,5:@PrintVal K
 UNTIL K=27
 
 END
@@ -282,7 +288,17 @@ PROC DrawBorder _col _row _sizeX _sizeY _colour
   @POS Xstep,Ystep:@PrintByte 123+colour
 ENDPROC
 
+PROC GoodBeep
+  SOUND 0,121,10,8
+  pause 4
+  SOUND 
+ENDPROC
 
+PROC BadBeep
+  SOUND 0,255,10,8
+  pause 4
+  SOUND 
+ENDPROC
 
 
 
@@ -290,98 +306,98 @@ ENDPROC
 
 
 Proc PrintCard _col _row _card
-x=_col:y=_row:card=_card
-IF card=0  
+  x=_col:y=_row:card=_card
+  IF card=0  
     @POS x,y:@PrintByte 28:@PrintByte 29:@PrintByte 30
     @POS x,y+1:@PrintByte 63:@PrintByte 62:@PrintByte 64
     @POS x,y+2:@PrintByte 63:@PrintByte 62:@PrintByte 64
     @POS x,y+3:@PrintByte 59:@PrintByte 60:@PrintByte 61
-ElIF card=1 
+  ElIF card=1 
     @POS x,y:@PrintByte 28:@PrintByte 29:@PrintByte 30
     @POS x,y+1:@PrintByte 63:@PrintByte 66:@PrintByte 64
     @POS x,y+2:@PrintByte 63:@PrintByte 67:@PrintByte 64
     @POS x,y+3:@PrintByte 59:@PrintByte 60:@PrintByte 61
-ElIF card=2 
+  ElIF card=2 
     @POS x,y:@PrintByte 28:@PrintByte 29:@PrintByte 30
     @POS x,y+1:@PrintByte 63:@PrintByte 196:@PrintByte 64
     @POS x,y+2:@PrintByte 63:@PrintByte 197:@PrintByte 64
     @POS x,y+3:@PrintByte 59:@PrintByte 60:@PrintByte 61
-ElIF card=3 
+  ElIF card=3 
     @POS x,y:@PrintByte 28:@PrintByte 29:@PrintByte 30
    @POS x,y+1:@PrintByte 63:@PrintByte 68:@PrintByte 64
     @POS x,y+2:@PrintByte 63:@PrintByte 70:@PrintByte 64
     @POS x,y+3:@PrintByte 59:@PrintByte 60:@PrintByte 61
-ElIF card=4 
+  ElIF card=4 
     @POS x,y:@PrintByte 28:@PrintByte 29:@PrintByte 30
     @POS x,y+1:@PrintByte 63:@PrintByte 199:@PrintByte 64
     @POS x,y+2:@PrintByte 63:@PrintByte 200:@PrintByte 64
     @POS x,y+3:@PrintByte 59:@PrintByte 60:@PrintByte 61
-ElIF card=5 
+  ElIF card=5 
     @POS x,y:@PrintByte 28:@PrintByte 29:@PrintByte 30
    @POS x,y+1:@PrintByte 63:@PrintByte 73:@PrintByte 64
     @POS x,y+2:@PrintByte 63:@PrintByte 70:@PrintByte 64
     @POS x,y+3:@PrintByte 59:@PrintByte 60:@PrintByte 61
-ElIF card=6 
+  ElIF card=6 
     @POS x,y:@PrintByte 28:@PrintByte 29:@PrintByte 30
     @POS x,y+1:@PrintByte 63:@PrintByte 202:@PrintByte 64
     @POS x,y+2:@PrintByte 63:@PrintByte 203:@PrintByte 64
     @POS x,y+3:@PrintByte 59:@PrintByte 60:@PrintByte 61
-ElIF card=7 
+  ElIF card=7 
     @POS x,y:@PrintByte 204:@PrintByte 205:@PrintByte 206
     @POS x,y+1:@PrintByte 207:@PrintByte 208:@PrintByte 209
     @POS x,y+2:@PrintByte 210:@PrintByte 211:@PrintByte 212
     @POS x,y+3:@PrintByte 213:@PrintByte 214:@PrintByte 215
-ElIF card=8 
+  ElIF card=8 
    @POS x,y:@PrintByte 97:@PrintByte 98:@PrintByte 99
     @POS x,y+1:@PrintByte 100:@PrintByte 101:@PrintByte 102
     @POS x,y+2:@PrintByte 103:@PrintByte 104:@PrintByte 105
     @POS x,y+3:@PrintByte 106:@PrintByte 107:@PrintByte 108
-endif
+  endif
 ENDPROC
 
 proc printPh _col _row _numCards 
-x=_col:y=_row
-for i=1 to _numCards
-@POS (x+i)-1,y:@PrintByte 13:@PrintByte 14
-@POS (x+i)-1,y+1:@PrintByte 15:@PrintByte 27
-next i
+  x=_col:y=_row
+  for i=1 to _numCards
+  @POS (x+i)-1,y:@PrintByte 13:@PrintByte 14
+  @POS (x+i)-1,y+1:@PrintByte 15:@PrintByte 27
+  next i
 ENDPROC
 
 proc printPlayerScore _col _row _BlackCounters _WhiteCounters
-x=_col:y=_row:bc=_BlackCounters:wc=_WhiteCounters
-IF BC=0
-@POS x,y:@PrintByte 1:@PrintByte 2:@PrintByte 2:@PrintByte 3
-ELIF BC=1
-@POS x,y:@PrintByte 4:@PrintByte 2:@PrintByte 2:@PrintByte 3
-ELIF BC=2   
-@POS x,y:@PrintByte 5:@PrintByte 2:@PrintByte 2:@PrintByte 3
-ELIF BC=3                                               
-@POS x,y:@PrintByte 6:@PrintByte 2:@PrintByte 2:@PrintByte 3
-ENDIF
+  x=_col:y=_row:bc=_BlackCounters:wc=_WhiteCounters
+  IF BC=0
+  @POS x,y:@PrintByte 1:@PrintByte 2:@PrintByte 2:@PrintByte 3
+  ELIF BC=1
+  @POS x,y:@PrintByte 4:@PrintByte 2:@PrintByte 2:@PrintByte 3
+  ELIF BC=2   
+  @POS x,y:@PrintByte 5:@PrintByte 2:@PrintByte 2:@PrintByte 3
+  ELIF BC=3                                               
+  @POS x,y:@PrintByte 6:@PrintByte 2:@PrintByte 2:@PrintByte 3
+  ENDIF
 
-IF WC=0
-@POS x+1,y:@PrintByte 2:@PrintByte 2:@PrintByte 3
-ELIF WC=1
-@POS x+1,y:@PrintByte 2:@PrintByte 2:@PrintByte 11
-ELIF WC=2   
-@POS x+1,y:@PrintByte 2:@PrintByte 7:@PrintByte 11
-ELIF WC=3                                               
-@POS x+1,y:@PrintByte 7:@PrintByte 7:@PrintByte 11
-ELIF WC=4
-@POS x+1,y:@PrintByte 7:@PrintByte 8:@PrintByte 11
-ELIF WC=5   
-@POS x+1,y:@PrintByte 8:@PrintByte 8:@PrintByte 11
-ELIF WC=6                                               
-@POS x+1,y:@PrintByte 8:@PrintByte 8:@PrintByte 12
-ELIF WC=7
-@POS x+1,y:@PrintByte 9:@PrintByte 8:@PrintByte 12
-ELIF WC=8   
-@POS x+1,y:@PrintByte 9:@PrintByte 9:@PrintByte 12
-ELIF WC=9                                               
-@POS x+1,y:@PrintByte 9:@PrintByte 10:@PrintByte 12
-ELIF WC=10                                               
-@POS x+1,y:@PrintByte 10:@PrintByte 10:@PrintByte 12
-ENDIF
+  IF WC=0
+  @POS x+1,y:@PrintByte 2:@PrintByte 2:@PrintByte 3
+  ELIF WC=1
+  @POS x+1,y:@PrintByte 2:@PrintByte 2:@PrintByte 11
+  ELIF WC=2   
+  @POS x+1,y:@PrintByte 2:@PrintByte 7:@PrintByte 11
+  ELIF WC=3                                               
+  @POS x+1,y:@PrintByte 7:@PrintByte 7:@PrintByte 11
+  ELIF WC=4
+  @POS x+1,y:@PrintByte 7:@PrintByte 8:@PrintByte 11
+  ELIF WC=5   
+  @POS x+1,y:@PrintByte 8:@PrintByte 8:@PrintByte 11
+  ELIF WC=6                                               
+  @POS x+1,y:@PrintByte 8:@PrintByte 8:@PrintByte 12
+  ELIF WC=7
+  @POS x+1,y:@PrintByte 9:@PrintByte 8:@PrintByte 12
+  ELIF WC=8   
+  @POS x+1,y:@PrintByte 9:@PrintByte 9:@PrintByte 12
+  ELIF WC=9                                               
+  @POS x+1,y:@PrintByte 9:@PrintByte 10:@PrintByte 12
+  ELIF WC=10                                               
+  @POS x+1,y:@PrintByte 10:@PrintByte 10:@PrintByte 12
+  ENDIF
 ENDPROC
 
 
