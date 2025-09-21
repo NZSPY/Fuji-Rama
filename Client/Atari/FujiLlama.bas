@@ -274,7 +274,6 @@ DO
     @checkErrors
   UNTIL OK=1
   
-  
   REPEAT ' loop until the  game starts
     if Time>500
       @readGameState
@@ -293,7 +292,7 @@ DO
       ENDIF
       if playerStatus(PlayerIndex)<>1
           @readGameState
-         @DrawGameState
+          @DrawGameState
       ENDIF
     @ReadKeyPresses
     if GameStatus(tablenumber)=4 then @ShowResults
@@ -446,16 +445,20 @@ PROC ReadKeyPresses
     @CheckVaildMove K
     @ClearKeyQueue
   EliF K=193 AND GameStatus(tablenumber)=2
+    @GoodBeep
     @StartGame
     @readGameState
     @ClearKeyQueue
   Elif K=237
     @CycleColorTheme
   Elif K=198
+    @GoodBeep
     @DisplayHelpDialog
   Elif K=213
+    @GoodBeep
     @AskSure 1 
   Elif K=208
+    @GoodBeep
     @AskSure 2 
   ENDIF
 ENDPROC
@@ -486,10 +489,31 @@ PROC CheckVaildMove _move
     ENDIF
   Next a
   if Move$<>"" 
-    @GoodBeep      
-    @POS 1,24: @Print&"PLAYED MOVE:                           "
+    @GoodBeep
+    @POS 1,24: @Print &"                                       "      
+    @POS 1,24: @Print &PlayerName$(PlayerIndex)
+    @POS Len(PlayerName$(PlayerIndex))+1,24:@Print &" PLAYED A "
+    if move$="1"
+      @Print &"ONE"
+      elif move$="2"
+      @Print &"TWO"
+      elif move$="3"
+      @Print &"THREE"
+      elif move$="4"
+      @Print &"FOUR"
+      elif move$="5"
+      @Print &"FIVE"
+      elif move$="6"
+      @Print &"SIX"
+      elif move$="7"
+      @Print &"LLAMA"
+      elif move$="D"
+      @POS Len(PlayerName$(PlayerIndex))+1,24:@PrintUpper &" drew a card from the deck"
+      elif move$="F"
+      @POS Len(PlayerName$(PlayerIndex))+1,24:@Print &" FOLDED                   "
+    ENDIF
     @PlayMove
-    @readGameState
+    playerStatus(PlayerIndex)=0
   ELSE
     @BadBeep
   ENDIF
@@ -923,6 +947,7 @@ PROC DrawMainPlayerHand _Index
   XX=((36-(PlayerHandCount(DisplayIndex)*4))/2)+2
   for a=1 to len(PlayerHand$(DisplayIndex))
     card=VAL(PlayerHand$(DisplayIndex)[a,1])
+    if playerStatus(DisplayIndex)=2 then card=8 ' if folded show back of card
     @DrawCard XX,YY,card
     XX=XX+4
   next a
@@ -930,6 +955,7 @@ PROC DrawMainPlayerHand _Index
   XX=((36-(PlayerHandCount(DisplayIndex)*3))/2)+2
   for a=1 to len(PlayerHand$(DisplayIndex))
     card=VAL(PlayerHand$(DisplayIndex)[a,1])
+    if playerStatus(DisplayIndex)=2 then card=8 ' if folded show back of card
     @DrawCard XX,YY,card
     XX=XX+3
  next a
@@ -937,6 +963,7 @@ PROC DrawMainPlayerHand _Index
   XX=((36-(PlayerHandCount(DisplayIndex)*2)+1)/2)+2
   for a=1 to len(PlayerHand$(DisplayIndex))
     card=VAL(PlayerHand$(DisplayIndex)[a,1])
+    if playerStatus(DisplayIndex)=2 then card=8 ' if folded show back of card
     @DrawCard XX,YY,card
     XX=XX+2
  next a
@@ -1119,10 +1146,12 @@ PROC DrawPlayers
     @POS X+Xoffset,YPOS(SLOT): @Print &":"
     @POS X+Xoffset+1,YPOS(SLOT): @PrintVal PlayerStatus(a)
     @DrawPlayerScore X+Xoffset+2,YPOS(SLOT),PlayerBlackTokens(a),PlayerWhiteTokens(a)
+    folded=0
+    if playerStatus(a)=2 then folded=128
     if slot=2 
-    @DrawPlayerHand XPOS(SLOT)+((38-(PlayerHandCount(a)+2))/2),YPOS(SLOT)+2,PlayerHandCount(a)
+    @DrawPlayerHand XPOS(SLOT)+((38-(PlayerHandCount(a)+2))/2),YPOS(SLOT)+2,PlayerHandCount(a),folded
     else
-    @DrawPlayerHand XPOS(SLOT)+((14-(PlayerHandCount(a)+2))/2),YPOS(SLOT)+2,PlayerHandCount(a)
+    @DrawPlayerHand XPOS(SLOT)+((14-(PlayerHandCount(a)+2))/2),YPOS(SLOT)+2,PlayerHandCount(a),folded
     ENDIF
   endif
   inc SLOT
@@ -1131,13 +1160,13 @@ PROC DrawPlayers
  if PlayerHandCount(playerIndex)>0 then @DrawMainPlayerHand Playerindex
 ENDPROC
 
-PROC DrawPlayerHand _col _row _numCards 
+PROC DrawPlayerHand _col _row _numCards _folded
   if _numCards=0 then exit
-  XXX=_col:YYY=_row
+  XXX=_col:YYY=_row:folded=_folded
   if _numCards>12 then _numCards=12
   for i=1 to _numCards
-  @POS (XXX+i)-1,YYY:@PrintByte 13:@PrintByte 14
-  @POS (XXX+i)-1,YYY+1:@PrintByte 15:@PrintByte 27
+  @POS (XXX+i)-1,YYY:@PrintByte 13+folded:@PrintByte 14+folded
+  @POS (XXX+i)-1,YYY+1:@PrintByte 15+folded:@PrintByte 27+folded
   next i
 ENDPROC
 

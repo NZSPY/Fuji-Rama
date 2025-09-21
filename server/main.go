@@ -505,22 +505,22 @@ func getGameState(c *gin.Context) {
 	idlePlayerChange(tableIndex)
 }
 
-// check if any human players have disconnected ? (IE not polled the game state for over 5 minutes) and turn them into AI players
+// check if any human players have disconnected ? (IE not polled the game state for over 3 minutes) and turn them into AI players
 func idlePlayerChange(tableIndex int) {
 	for i := 0; i < len(gameStates[tableIndex].Players); i++ {
 		player := &gameStates[tableIndex].Players[i]
-		if time.Since(player.LastPolledTime) > 5*time.Minute && player.Human {
+		if time.Since(player.LastPolledTime) > 3*time.Minute && player.Human {
 			gameStates[tableIndex].Players[i].Human = false                                         // Change the player to an AI player
 			gameStates[tableIndex].Players[i].Name = gameStates[tableIndex].Players[i].Name + "-AI" // Change the player name to indicate they are now an AI player
 		}
 	}
 }
 
-// check if any human players have disconnected (IE not polled the game state for over 10 minutes) and remove them from the table
+// check if any human players have disconnected (IE not polled the game state for over 5 minutes) and remove them from the table
 func idlePlayerRemoval(tableIndex int) {
 	for i := 0; i < len(gameStates[tableIndex].Players); i++ {
 		player := &gameStates[tableIndex].Players[i]
-		if time.Since(player.LastPolledTime) > 10*time.Minute && player.Human {
+		if time.Since(player.LastPolledTime) > 5*time.Minute && player.Human {
 			// Remove the player from the table
 			gameStates[tableIndex].Players = append(gameStates[tableIndex].Players[:i], gameStates[tableIndex].Players[i+1:]...)
 			gameStates[tableIndex].Table.CurPlayers--
