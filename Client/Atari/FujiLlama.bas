@@ -223,8 +223,6 @@ ok=0
 ' Player and table selection variables
 TableNumber=0
 myName$="TESTER" ' Default name will get this from App key when I learn how to do that
-gameover=0
-shown=0
 
 ' Game state variables
 Drawdeck=0
@@ -245,8 +243,8 @@ for i=0 to 5
 next i
 move$=""
 PlayerIndex=0
-' Game Result variables
-MessageLine1$=""
+dealt=0
+
 ' Error variable
 _ERR=0    
 ' Index variable for reading FujiNet JSON data
@@ -305,6 +303,7 @@ LOOP
 ' --------- End of Main program ----------------------
 
 ' MY ROUTINES
+
 PROC TitleScreen
   @ClearKeyQueue
   @EnableDoubleBuffer
@@ -520,6 +519,7 @@ PROC CheckVaildMove _move
 ENDPROC
 
 PROC ShowResults
+  dealt=0
   @EnableDoubleBuffer
   @ResetScreen
   @POS 2,0: @Print &"ROUND OVER - PLAYERS HANDS AND SCORES"
@@ -818,6 +818,28 @@ PROC StartGame
   @CallFujiNet
 ENDPROC
 
+Proc DealCards
+  data yend()=19,14,8,3,8,14
+  data xend0()=8,12,16,20,24,28
+  data xend1()=1,3,5,7,9,11
+  data xend2()=1,3,5,7,9,11
+  data xend3()=14,16,18,20,22,24
+  data xend4()=38,36,34,32,30,28
+  data xend5()=38,36,34,32,30,28
+  for cardnumber=1 to 6
+    for player=0 to 5
+      if player=0 and playerName$(player)<>"" then @DrawCardFromDeck xend0(cardnumber-1),yend(player),VAL(PlayerHand$(player)[cardnumber,1])
+      if player=1 and playerName$(player)<>"" then @DrawCardFromDeck xend1(cardnumber-1),yend(player),9
+      if player=2 and playerName$(player)<>"" then @DrawCardFromDeck xend2(cardnumber-1),yend(player),9
+      if player=3 and playerName$(player)<>"" then @DrawCardFromDeck xend3(cardnumber-1),yend(player),9
+      if player=4 and playerName$(player)<>"" then @DrawCardFromDeck xend4(cardnumber-1),yend(player),9
+      if player=5 and playerName$(player)<>"" then @DrawCardFromDeck xend5(cardnumber-1),yend(player),9
+    next player
+  next cardnumber
+  @DrawCardFromDeck 20,9,DiscardTop
+  dealt=1
+ENDPROC
+
 PROC CheckErrors
   ' Check data returned from FujiNet to see if it was successful or not
   ' and display appropriate message
@@ -914,10 +936,10 @@ PROC DrawGameState
   @POS 15,16: @PrintByte 254:@POS 23,16: @PrintByte 254                 
   @DrawPlayers
   if LastMovePlayed$="Waiting for players to join"
-  @POS 2,2: @Print &"PLEASE WAIT FOR OTHER PLAYERS TO JOIN"
-  @POS 3,3: @Print &"OR PRESS S TO START WITH AI PLAYERS" 
+  @POS 2,3: @Print &"PLEASE WAIT FOR OTHER PLAYERS TO JOIN"
+  @POS 3,4: @Print &"OR PRESS S TO START WITH AI PLAYERS" 
   @DrawCard 17,9,8 ' Draw Deck
-  @DrawCard 20,9,0 ' Discard Pile
+  '@DrawCard 20,9,0 ' Discard Pile
   @DrawBufferEnd
   @ShowScreen
   exit
@@ -928,6 +950,14 @@ PROC DrawGameState
   else
   @DrawCard 17,9,0 ' Empty Draw Deck
   endif
+  if dealt=0 
+    DrawDeck=56
+    @POS 19,13: @PrintVal Drawdeck
+    @DrawBufferEnd
+    @ShowScreen
+    @DealCards
+    @EnableDoubleBuffer
+  Endif
   @DrawCard 20,9,DiscardTop ' Discard Pile
   @POS 1,24: @PrintUpper & LastMovePlayed$[1,38]
   @POS 5,25:@Print &"H-HELP C-COLOR E-EXIT Q-QUIT"
@@ -1129,35 +1159,37 @@ PROC DrawPlayers
   @POS X+Xoffset,Y: @Print &":"
   @POS X+Xoffset+1,Y: @PrintVal PlayerStatus(PlayerIndex)
   @DrawPlayerScore X+Xoffset+2,17,PlayerBlackTokens(PlayerIndex),PlayerWhiteTokens(PlayerIndex)
+  if PlayerHandCount(playerIndex)>0 and dealt=1 then @DrawMainPlayerHand Playerindex
   DATA XPOS()=1,1,0,25,25
   DATA HPOS()=1,1,13,26,26
   DATA YPOS()=12,6,1,6,12
   slot=0
   For a=0 to 5
-  if  a<>PlayerIndex
-  if PlayerName$(a)<>""
-    Xoffset=len(PlayerName$(a))
-    if Xoffset>8 and slot<>2 then Xoffset=8
-    if Xoffset>12 and slot=2 then Xoffset=12
-    X=(14-(Xoffset+6))/2
-    if slot=2 then X=((36-(Xoffset+6))/2)+2
-    X=X+XPOS(SLOT)
-    @POS X,YPOS(SLOT): @PrintUpper &PlayerName$(a)[1,Xoffset]
-    @POS X+Xoffset,YPOS(SLOT): @Print &":"
-    @POS X+Xoffset+1,YPOS(SLOT): @PrintVal PlayerStatus(a)
-    @DrawPlayerScore X+Xoffset+2,YPOS(SLOT),PlayerBlackTokens(a),PlayerWhiteTokens(a)
-    folded=0
-    if playerStatus(a)=2 then folded=128
-    if slot=2 
-    @DrawPlayerHand XPOS(SLOT)+((38-(PlayerHandCount(a)+2))/2),YPOS(SLOT)+2,PlayerHandCount(a),folded
-    else
-    @DrawPlayerHand XPOS(SLOT)+((14-(PlayerHandCount(a)+2))/2),YPOS(SLOT)+2,PlayerHandCount(a),folded
-    ENDIF
-  endif
-  inc SLOT
- endif
- Next a
- if PlayerHandCount(playerIndex)>0 then @DrawMainPlayerHand Playerindex
+      if  a<>PlayerIndex
+        if PlayerName$(a)<>""
+          Xoffset=len(PlayerName$(a))
+          if Xoffset>8 and slot<>2 then Xoffset=8
+          if Xoffset>12 and slot=2 then Xoffset=12
+          X=(14-(Xoffset+6))/2
+          if slot=2 then X=((36-(Xoffset+6))/2)+2
+          X=X+XPOS(SLOT)
+          @POS X,YPOS(SLOT): @PrintUpper &PlayerName$(a)[1,Xoffset]
+          @POS X+Xoffset,YPOS(SLOT): @Print &":"
+          @POS X+Xoffset+1,YPOS(SLOT): @PrintVal PlayerStatus(a)
+          @DrawPlayerScore X+Xoffset+2,YPOS(SLOT),PlayerBlackTokens(a),PlayerWhiteTokens(a)
+          folded=0
+          if playerStatus(a)=2 then folded=128
+          if dealt=1
+            if slot=2 
+              @DrawPlayerHand XPOS(SLOT)+((38-(PlayerHandCount(a)+2))/2),YPOS(SLOT)+2,PlayerHandCount(a),folded
+              else
+              @DrawPlayerHand XPOS(SLOT)+((14-(PlayerHandCount(a)+2))/2),YPOS(SLOT)+2,PlayerHandCount(a),folded
+              ENDIF
+          endif
+          inc SLOT
+        Endif
+      Endif
+  Next a
 ENDPROC
 
 PROC DrawPlayerHand _col _row _numCards _folded
@@ -1253,6 +1285,34 @@ PROC DrawResultHands _Index _Xoffset _Yoffset
     @DrawCardLine XX,YY,card
     XX=XX+3
  next a
+ENDPROC
+
+Proc DrawCardFromDeck _endX _endY _card
+  SOUND 0,121,1,8
+  dx=18:dy=10: endX=_endX : endY=_endY : card=_card
+  xchange=-1:ychange=-1
+  if endX>dx then xchange=1 
+  if endy>dy then ychange=1 
+  repeat
+    @DrawBuffer 
+    if dx<>endx then DX=DX+xchange
+    if dy<>endy then DY=DY+ychange
+    if card=9 
+      @POS dx,dy:@PrintByte 13:@PrintByte 14
+      @POS dx,dy+1:@PrintByte 15:@PrintByte 27
+      else
+      @DrawCard dx,dy,card
+    endif
+  until dx=endx and dy=endy
+  dec Drawdeck
+  @POS 19,13: @PrintVal Drawdeck
+  @UpdateScreenBuffer
+  sound
+ENDPROC
+
+Proc UpdateScreenBuffer
+  move &screenBuffer,&screenBuffer+1040, 1040
+  @DrawBuffer
 ENDPROC
 
 '-------------------------------------------------------------
