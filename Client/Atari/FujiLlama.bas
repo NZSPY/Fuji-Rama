@@ -211,7 +211,7 @@ QUERY$=""$9B
 JSON$="/tables"
 dummy$=""
 ' Initialize strings and Arrays - this reserves their space in memory so NInput can write to them
-Dim TableCurrentPlayers(6),TableMaxPlayers(6),TableStatus(6),PlayerStatus(5),PlayerHandCount(5),PlayerWhiteTokens(5),PlayerBlackTokens(5),PlayerScore(5),PlayerRoundScore(5),GameStatus(5)
+Dim TableCurrentPlayers(6),TableMaxPlayers(6),TableStatus(6),PlayerStatus(5),PlayerHandCount(5),PlayerWhiteTokens(5),PlayerBlackTokens(5),PlayerScore(5),PlayerRoundScore(5),GameStatus(5),xStart(5),yStart(5)
 for i=0 to 6
  TableID$(i)=""
  TableName$(i)=""
@@ -290,6 +290,7 @@ DO
       ENDIF
       if playerStatus(PlayerIndex)<>1
           @readGameState
+          if LastMovePlayed$<>PreviousLastMovePlayed$ then @MoveAnimation
           @DrawGameState
       ENDIF
     @ReadKeyPresses
@@ -303,6 +304,52 @@ LOOP
 ' --------- End of Main program ----------------------
 
 ' MY ROUTINES
+
+PROC MoveAnimation
+  dummy$=lastMovePlayed$[1,len(playerName$(playerIndex))]
+  if dummy$=playerName$(playerIndex) then exit
+  for a=0 to 5
+  dummy$=lastMovePlayed$[1,len(playerName$(a))]
+  if dummy$=playerName$(a) then exit
+  next a 
+  if dummy$="" then exit
+  dummy$=lastMovePlayed$[len(playerName$(a))+2,4]  
+  @POS 1,1
+  @POS 1,2: @PrintUpper &PlayerName$(a):@printUpper &" is:"
+  if dummy$="drew" 
+    @POS 1,3: @PrintUpper &"Drawing"
+    @UpdateScreenBuffer
+    @DrawCardFromDeck xStart(a),yStart(a),9 
+  elif dummy$="play" 
+    @POS 1,3: @PrintUpper &"Discarding"
+    @PlayCard a
+  elif dummy$="fold" 
+    @POS 1,3: @PrintUpper &"Folding"
+    get K
+  Endif
+EndProc
+
+PROC ClearState
+  Drawdeck=0
+  DiscardTop=0
+  LastMovePlayed$=""
+  PreviousLastMovePlayed$=""
+  for i=0 to 5
+  playerName$(i)=""
+  PlayerStatus(i)=0
+  PlayerHandCount(i)=0
+  PlayerWhiteTokens(i)=0
+  PlayerBlackTokens(i)=0
+  PlayerScore(i)=0
+  PlayerHand$(i)=""
+  PlayerValidMoves$(i)=""
+  PlayerRoundScore(i)=0
+  GameStatus(i)=0
+  next i
+  move$=""
+  PlayerIndex=0
+  dealt=0
+EndProc
 
 PROC TitleScreen
   @ClearKeyQueue
@@ -353,6 +400,7 @@ ENDPROC
 
 PROC TableSelection
   ' This procedure draws the table selection screen and displays the tables available to join
+  @ClearState
   @ClearKeyQueue
   @EnableDoubleBuffer
   @ResetScreen
@@ -432,7 +480,7 @@ PROC TableSelection
   JSON$=+"&player="
   JSON$=+MyName$
   @POS 5,22: @Print &    " CONNECTING TO TABLE          "                  
-  @POS 3,25: @Print &    "PLEASE WAIT THIS MAY TAKE A MOMENT  "
+  @POS 1,25: @Print &    "  PLEASE WAIT THIS MAY TAKE A MOMENT  "
   @CallFujiNet ' Call the FujiNet API to join the table
   @NInputInit UNIT, &responseBuffer ' Initialize reading the api response
   @NInput &dummy$ ' Read the response from the FujiNet API
@@ -489,33 +537,54 @@ PROC CheckVaildMove _move
   Next a
   if Move$<>"" 
     @GoodBeep
-    @POS 1,24: @Print &"                                       "      
-    @POS 1,24: @Print &PlayerName$(PlayerIndex)
-    @POS Len(PlayerName$(PlayerIndex))+1,24:@Print &" PLAYED A "
-    if move$="1"
-      @Print &"ONE"
-      elif move$="2"
-      @Print &"TWO"
-      elif move$="3"
-      @Print &"THREE"
-      elif move$="4"
-      @Print &"FOUR"
-      elif move$="5"
-      @Print &"FIVE"
-      elif move$="6"
-      @Print &"SIX"
-      elif move$="7"
-      @Print &"LLAMA"
-      elif move$="D"
-      @POS Len(PlayerName$(PlayerIndex))+1,24:@PrintUpper &" drew a card from the deck"
-      elif move$="F"
-      @POS Len(PlayerName$(PlayerIndex))+1,24:@Print &" FOLDED                   "
-    ENDIF
+    @DoMainPlayerAnimation
     @PlayMove
     playerStatus(PlayerIndex)=0
   ELSE
     @BadBeep
   ENDIF
+ENDPROC
+
+Proc DoMainPlayerAnimation
+  if move$="D" then @DrawCardFromDeck xStart(PlayerIndex),yStart(PlayerIndex),8 
+  if move$>="1" and move$<="7" then @PlayCardMain val(move$)
+EndProc
+
+Proc PlayCardMain _card
+  C=_card
+  SOUND 0,121,1,8
+  mset &screenBuffer+(40*19), 40*5,0 ' Clear area above deck
+  if len(PlayerHand$(PlayerIndex))>1 
+  ' Remove the played card from the hand
+    for a=1 to len(PlayerHand$(PlayerIndex))
+      dummy$=PlayerHand$(PlayerIndex)[a,1]
+      if dummy$=STR$(C)
+        if a=len(PlayerHand$(PlayerIndex)) 
+          dummy$=PlayerHand$(PlayerIndex)[1,len(PlayerHand$(PlayerIndex))-1] 
+        else
+          dummy$=PlayerHand$(PlayerIndex)[1,a-1] 
+          value$=PlayerHand$(PlayerIndex)[a+1,len(PlayerHand$(PlayerIndex))] 
+          dummy$=+value$
+        Endif
+        exit
+      ENDIF
+    NEXT A
+    PlayerHand$(PlayerIndex)=dummy$
+    @DrawMainPlayerHand playerIndex
+  ENDIF
+  card=C
+  @UpdateScreenBuffer
+  endx=20:endy=9
+  dx=36:dy=20
+  xchange=-1:ychange=-1
+ repeat
+    @DrawBuffer 
+    if dx<>endx then DX=DX+xchange
+    if dy<>endy then DY=DY+ychange
+    @DrawCard dx,dy,card
+  until dx=endx and dy=endy
+  @UpdateScreenBuffer
+  sound
 ENDPROC
 
 PROC ShowResults
@@ -802,6 +871,21 @@ PROC ReadGameState
   loop 
 ENDPROC
 
+proc SetPlayerSlots
+  data xS()=2,1,1,13,26,26
+  data yS()=19,14,8,3,8,14
+  xstart(PlayerIndex)=xS(0)
+  ystart(PlayerIndex)=yS(0)
+  i=1
+  for a=0 to 5
+    if a<>PlayerIndex
+    xStart(a)=xs(i)
+    yStart(a)=ys(i)
+    inc i
+    Endif
+  next a
+endproc
+
 PROC PlayMove 
   JSON$="/move?table="
   JSON$=+TableID$(TableNumber)
@@ -838,6 +922,7 @@ Proc DealCards
   next cardnumber
   @DrawCardFromDeck 20,9,DiscardTop
   dealt=1
+  @SetPlayerSlots
 ENDPROC
 
 PROC CheckErrors
@@ -899,6 +984,51 @@ PROC BadBeep
   SOUND 
 ENDPROC
 
+Proc DrawCardFromDeck _endX _endY _card
+  SOUND 0,121,1,8
+  dx=18:dy=10: endX=_endX : endY=_endY : card=_card
+  xchange=-1:ychange=-1
+  if endX>dx then xchange=1 
+  if endy>dy then ychange=1 
+  repeat
+    @DrawBuffer 
+    if dx<>endx then DX=DX+xchange
+    if dy<>endy then DY=DY+ychange
+    if card=9 
+      @POS dx,dy:@PrintByte 13:@PrintByte 14
+      @POS dx,dy+1:@PrintByte 15:@PrintByte 27
+      else
+      @DrawCard dx,dy,card
+    endif
+  until dx=endx and dy=endy
+  dec Drawdeck
+  @POS 19,13: @PrintVal Drawdeck
+  @UpdateScreenBuffer
+  sound
+ENDPROC
+
+Proc PlayCard _PlayerIndex
+  index=_PlayerIndex
+  SOUND 0,121,1,8
+  endx=20:endy=10
+  dx=xStart(index):dy=yStart(index)
+  xchange=-1:ychange=-1
+  if endX>dx then xchange=1 
+  if endy>dy then ychange=1 
+  @POS dx,dy:   @Print &"             "
+  @POS dx,dy+1: @Print &"             "
+  @DrawPlayerHand dx,dy, PlayerHandCount(index), 0
+  @UpdateScreenBuffer
+  repeat
+    @DrawBuffer 
+    if dx<>endx then DX=DX+xchange
+    if dy<>endy then DY=DY+ychange
+    @POS dx,dy:@PrintByte 13:@PrintByte 14
+    @POS dx,dy+1:@PrintByte 15:@PrintByte 27
+  until dx=endx and dy=endy
+  @UpdateScreenBuffer
+  sound
+ENDPROC
 
 ' ============================================================================
 ' Drawing ROUTINES
@@ -922,6 +1052,7 @@ ENDPROC
 
 PROC DrawGameState 
   ' Draw the current game state on the screen
+  if GameStatus(tablenumber)=5 then Exit ' if game over do not redraw screen
   @EnableDoubleBuffer
   @ResetScreen
   @POS 0,5: @PrintINV &"@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
@@ -959,13 +1090,14 @@ PROC DrawGameState
     @EnableDoubleBuffer
   Endif
   @DrawCard 20,9,DiscardTop ' Discard Pile
-  @POS 1,24: @PrintUpper & LastMovePlayed$[1,38]
+  '@POS 1,24: @PrintUpper & LastMovePlayed$[1,38]
   @POS 5,25:@Print &"H-HELP C-COLOR E-EXIT Q-QUIT"
   if PlayerStatus(PlayerIndex)=1 
-  @POS 1,24: @PrintUpper & LastMovePlayed$[1,23]
-  @Print &", YOUR TURN NOW"
+  @POS 13,24: @Print &"YOUR TURN NOW"
   @DrawDrawButton 2,20
   @DrawFoldButton 37,20
+  else
+  @POS 7,24: @Print &"WAITING FOR OTHERS TO PLAY"
   ENDIF
   @DrawBufferEnd
   @ShowScreen
@@ -1285,29 +1417,6 @@ PROC DrawResultHands _Index _Xoffset _Yoffset
     @DrawCardLine XX,YY,card
     XX=XX+3
  next a
-ENDPROC
-
-Proc DrawCardFromDeck _endX _endY _card
-  SOUND 0,121,1,8
-  dx=18:dy=10: endX=_endX : endY=_endY : card=_card
-  xchange=-1:ychange=-1
-  if endX>dx then xchange=1 
-  if endy>dy then ychange=1 
-  repeat
-    @DrawBuffer 
-    if dx<>endx then DX=DX+xchange
-    if dy<>endy then DY=DY+ychange
-    if card=9 
-      @POS dx,dy:@PrintByte 13:@PrintByte 14
-      @POS dx,dy+1:@PrintByte 15:@PrintByte 27
-      else
-      @DrawCard dx,dy,card
-    endif
-  until dx=endx and dy=endy
-  dec Drawdeck
-  @POS 19,13: @PrintVal Drawdeck
-  @UpdateScreenBuffer
-  sound
 ENDPROC
 
 Proc UpdateScreenBuffer
