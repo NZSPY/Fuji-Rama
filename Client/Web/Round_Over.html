@@ -33,7 +33,7 @@
         const tableId = urlParams.get('table') || 'default'; // Use 'default' as fallback
         const playerName = urlParams.get('player') || 'unknown'; // Use 'unknown' as fallback
         function fetchGameState() {
-            fetch(`https://fujillama.sypsoft.nz/move?table=${tableId}&player=${playerName}&VM=R`)
+            fetch(`https://fujillama.spysoft.nz/move?table=${tableId}&player=${playerName}&VM=R`)
             .then(response => {
                 if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
@@ -43,7 +43,7 @@
             .then(data => {
                 displayTable(data);
                 // Second fetch after first one succeeds
-                return fetch(`https://fujillama.sypsoft.nz/state?table=${tableId}&player=${playerName}`);
+                return fetch(`https://fujillama.spysoft.nz/state?table=${tableId}&player=${playerName}`);
             })
             .then(response => {
                 if (!response.ok) {

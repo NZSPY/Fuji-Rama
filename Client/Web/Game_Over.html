@@ -21,7 +21,7 @@
 <body>
 
     <h2>The Game is Over! Here are the final results: 
-        <button onclick="fetch(`https://fujillama.sypsoft.nz/move?table=${tableId}&player=${playerName}&VM=G`).then(() => window.location.href='index.html')" style="margin: 10px;">Return to Table Selection</button>
+        <button onclick="fetch(`https://fujillama.spysoft.nz/move?table=${tableId}&player=${playerName}&VM=G`).then(() => window.location.href='index.html')" style="margin: 10px;">Return to Table Selection</button>
     </h2>
 
 
@@ -34,7 +34,7 @@
         const tableId = urlParams.get('table') || 'default'; // Use 'default' as fallback
         const playerName = urlParams.get('player') || 'unknown'; // Use 'unknown' as fallback
           function fetchGameState() {
-        fetch(`https://fujillama.sypsoft.nz/state?table=${tableId}&player=${playerName}`)
+        fetch(`https://fujillama.spysoft.nz/state?table=${tableId}&player=${playerName}`)
         .then(response => {
             if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
