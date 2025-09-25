@@ -4,6 +4,22 @@
 ' @version September 2025
 ' This is a client for the Fuji-Llama game server
 
+' FujiNet AppKey settings. These should not be changed
+AK_LOBBY_CREATOR_ID = 1     ' FUJINET Lobby
+AK_LOBBY_APP_ID  = 1        ' Lobby Enabled Game
+AK_LOBBY_KEY_USERNAME = 0   ' Lobby Username key
+AK_LOBBY_KEY_SERVER = 4     ' Fuji-Llama Client registered as Lobby appkey 4
+
+' Fuji-Llama client
+AK_CREATOR_ID = $B00B       ' Simon Young's creator id
+AK_APP_ID = 1               ' Fuji-Llama app id
+AK_KEY_SHOWHELP = 0         ' Shown help
+AK_KEY_COLORTHEME = 1       ' Color theme
+
+DATA NAppKeyBlock()=0,0,0
+
+
+
 
 
 ' Disable BASIC on XL/XE to make more memory available. (found in Erics 5card code don't know if I need it or not)
@@ -200,15 +216,35 @@ DATA colorThemeMap()      =  $B4,$88,  $84,$08, $22,$28, $04,$08,' NTSC
 DATA                      =  $A4,$78,  $74,$08, $12,$18, $04,$08 ' PAL 
 colorTheme=-1
 
+' Read server endpoint stored from Lobby
+serverEndpoint$=""
+query$=""
+
+@NReadAppKey AK_LOBBY_CREATOR_ID, AK_LOBBY_APP_ID, AK_LOBBY_KEY_SERVER, &serverEndpoint$
+
+' Parse endpoint url into server and query
+if serverEndpoint$<>""
+  for i=1 to len(serverEndpoint$)
+    if serverEndpoint$[i,1]="?"
+      query$=serverEndpoint$[i]
+      serverEndpoint$=serverEndpoint$[1,i-1]
+      exit
+    endif
+  next
+else
+  ' Default to known server if not specified by lobby. Override for local testing
+  serverEndpoint$="N:https://fujillama.spysoft.nz"
+  'serverEndpoint$="http://192.168.68.100:8080/"
+endif
+
 ' Fuji-Net Setup Variblies 
 UNIT=1
 JSON_MODE=1
 URL$=""
-BaseURL$="N:https://fujillama.spysoft.nz"
-' BaseURL$="N:HTTP://192.168.68.100:8080"
 QUERY$=""$9B
 JSON$="/tables"
 dummy$=""
+
 ' Initialize strings and Arrays - this reserves their space in memory so NInput can write to them
 Dim TableCurrentPlayers(6),TableMaxPlayers(6),TableStatus(6),PlayerStatus(5),PlayerHandCount(5),PlayerWhiteTokens(5),PlayerBlackTokens(5),PlayerScore(5),PlayerRoundScore(5),GameStatus(5),xStart(5),yStart(5)
 for i=0 to 6
@@ -221,7 +257,12 @@ next i
 ok=0
 ' Player and table selection variables
 TableNumber=0
-myName$="TESTER" ' Default name will get this from App key when I learn how to do that
+myName$=""
+ ' Read player's name from app key
+  @NReadAppKey AK_LOBBY_CREATOR_ID, AK_LOBBY_APP_ID, AK_LOBBY_KEY_USERNAME, &myName$
+  @ToUpper(&myName$)
+
+if len(myName$)=0 then myName$="LORENZO" ' Default if not loaded from the App key 
 
 ' Game state variables
 Drawdeck=0
@@ -701,6 +742,8 @@ PROC SetPlayerName
       endif
     loop
 
+' Name has been captured. Save to app key 
+    @NWriteAppKey AK_LOBBY_CREATOR_ID, AK_LOBBY_APP_ID, AK_LOBBY_KEY_USERNAME, &myName$
   
 ENDPROC
 
@@ -1454,7 +1497,7 @@ ENDPROC
 '--------------------------------------------------------------
 PROC CallFujiNet
   dummy$=""
-  URL$=BaseURL$
+  URL$=serverEndpoint$
   URL$=+JSON$
   URL$=+""$9B
   @openconnection
@@ -1638,14 +1681,18 @@ PROC InitScreen
 ENDPROC
 
 PROC CycleColorTheme
-  K=0
+  ' First time called? Load from app key
   if colorTheme = -1
     colorTheme = 0
+    temp$=""
+    @NReadAppKey AK_CREATOR_ID, AK_APP_ID, AK_KEY_COLORTHEME, &temp$
+    if len(temp$)=1 then colorTheme = val(temp$)
   else
     ' Otheriwse, just cycle theme
     sound 0, 220,10,5
     pause 4
     sound 0, 200,10,5
+    
     colorTheme = (colorTheme + 1) mod 4 
   endif
 
@@ -1658,6 +1705,9 @@ PROC CycleColorTheme
   background_color(0)= colorThemeMap(i)
   background_color(1)= colorThemeMap(i)
   POKE 708, colorThemeMap(i+1)
+
+  ' Store in app key to recall on next program start
+  @NWriteAppKey AK_CREATOR_ID, AK_APP_ID, AK_KEY_COLORTHEME, &STR$(colorTheme)
   sound
   @ClearKeyQueue
 ENDPROC
@@ -1818,4 +1868,28 @@ ENDPROC
 
 ' ============================================================================
 
+' ============================================================================
+' (N AppKey Helpers from Eric Carr) Call NRead/WriteAppKey to read or write app key
 
+PROC __NOpenAppKey __N_creator __N_app __N_key __N_mode
+  dpoke &NAppKeyBlock, __N_creator
+  poke &NAppKeyBlock + 2, __N_app
+  poke &NAppKeyBlock + 3, __N_key
+  poke &NAppKeyBlock + 4, __N_mode
+  SIO $70, 1, $DC, $80, &NAppKeyBlock, $09, 6, 0,0
+ENDPROC
+
+PROC NWriteAppKey __N_creator __N_app __N_key __N_string
+  @__NOpenAppKey __N_creator, __N_app, __N_key, 1
+  SIO $70, 1, $DE, $80, __N_string+1, $09, 64, peek(__N_string), 0
+ENDPROC
+
+PROC NReadAppKey __N_creator __N_app __N_key __N_string
+  @__NOpenAppKey __N_creator, __N_app, __N_key, 0
+  SIO $70, 1, $DD, $40, __N_string, $01, 66,0, 0
+  MOVE __N_string+2, __N_string+1,64
+  ' /\ MOVE - The first two bytes are the LO/HI length of the result. Since only the
+  ' first byte is meaningful (length<=64), and since FastBasic string
+  ' length is one byte, we just shift the entire string left 1 byte to
+  ' overwrite the unused HI byte and instantly make it a string!
+ENDPROC

@@ -93,6 +93,14 @@ type Players []Player
 func main() {
 	log.Print("Starting server...")
 
+	// Set environment flags
+	UpdateLobby = os.Getenv("GO_PROD") == "1"
+
+	if UpdateLobby {
+		log.Printf("This instance will update the lobby at " + LOBBY_ENDPOINT_UPSERT)
+		gin.SetMode(gin.ReleaseMode)
+	}
+
 	// Determine port for HTTP service.
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -124,7 +132,7 @@ func main() {
 	router.GET("/join", joinTable)        // Join a table
 	router.GET("/start", StartNewGame)    // start a new game on a table (this also happens automaticly when the table is filled with players), if the table is not filled  it will fill the emplty slots with AI Players
 	router.GET("/move", doVaildMoveURL)   // Make a move on the table (play, fold, draw)
-	// router.GET("/results", getResults)    // View the results of the last round played (not sure I need this now)
+	router.GET("/updateLobby", apiUpdateLobby)
 
 	// Set up router and start server
 	router.SetTrustedProxies(nil) // Disable trusted proxies because Gin told me to do it.. (neeed to investigate this further)
@@ -972,4 +980,18 @@ func makeHandSummary(tableIndex int, playerIndex int) string {
 		summary += strconv.Itoa(card.Cardvalue)
 	}
 	return strings.TrimSpace(summary)
+}
+
+// Forces an update of all tables to the lobby - useful for adhoc use if the Lobby restarts or loses info
+func apiUpdateLobby(c *gin.Context) {
+	/*
+		for _, table := range tables {
+			value, ok := stateMap.Load(table.Table)
+			if ok {
+				state := value.(*GameState)
+				state.updateLobby()
+			}
+		}
+	*/
+	c.JSON(http.StatusOK, "Lobby Updated")
 }
