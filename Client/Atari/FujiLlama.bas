@@ -204,7 +204,6 @@ colorTheme=-1
 UNIT=1
 JSON_MODE=1
 URL$=""
-
 BaseURL$="N:https://fujillama.spysoft.nz"
 ' BaseURL$="N:HTTP://192.168.68.100:8080"
 QUERY$=""$9B
@@ -244,6 +243,8 @@ next i
 move$=""
 PlayerIndex=0
 dealt=0
+countdown =60
+jiffy=0
 
 ' Error variable
 _ERR=0    
@@ -294,6 +295,20 @@ DO
           @DrawGameState
       ENDIF
     @ReadKeyPresses
+    if playerStatus(PlayerIndex)=1
+      jiffy=jiffy+1
+      if jiffy=50
+        jiffy=0
+        countdown=countdown-1
+      ENDIF
+    @POS 36,17: @PrintVAL CountDown:@Print &" " 
+      if countdown<=0 
+        move$="F"
+        @BadBeep
+        @PlayMove
+        playerStatus(PlayerIndex)=0
+      ENDIF
+    ENDIF
     if GameStatus(tablenumber)=4 then @ShowResults
   UNTIL GameStatus(tablenumber)=5
   @ShowGameOver
@@ -536,8 +551,9 @@ PROC CheckVaildMove _move
     ENDIF
   Next a
   if Move$<>"" 
-    @GoodBeep
+    @GoodBeep           
     @DoMainPlayerAnimation
+    @POS 13,24: @Print &"             "
     @PlayMove
     playerStatus(PlayerIndex)=0
   ELSE
@@ -869,6 +885,10 @@ PROC ReadGameState
     INC INDEX  ' If read last field of a Player Array, increment index and read next player
   ENDIF
   loop 
+  if playerStatus(PlayerIndex)=1
+    countdown=60
+    jiffy=0
+  ENDIF
 ENDPROC
 
 proc SetPlayerSlots
@@ -1094,6 +1114,7 @@ PROC DrawGameState
   @POS 5,25:@Print &"H-HELP C-COLOR E-EXIT Q-QUIT"
   if PlayerStatus(PlayerIndex)=1 
   @POS 13,24: @Print &"YOUR TURN NOW"
+  @POS 26,17: @Print &"TIME LEFT:"
   @DrawDrawButton 2,20
   @DrawFoldButton 37,20
   else
