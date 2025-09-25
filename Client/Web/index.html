@@ -46,7 +46,7 @@
 <script>
     document.addEventListener('DOMContentLoaded', () => {
         const tableBody = document.getElementById('dataTableBody');
-        const apiUrl = 'https://fuji-llama-971660789205.asia-southeast1.run.app/tables';
+        const apiUrl = 'https://fujillama.sypsoft.nz/tables';
     
         async function fetchDataAndPopulateTable() {
             try {
@@ -140,7 +140,7 @@
 function openTableAndRefresh() {
     var tableId = document.getElementById('tableID').value;
     var playerName = document.getElementById('playerName').value;
-    fetch('https://fuji-llama-971660789205.asia-southeast1.run.app/join?table=' + tableId + '&player=' + playerName)
+    fetch('https://fujillama.sypsoft.nz/join?table=' + tableId + '&player=' + playerName)
         .then(async response => {
             if (!response.ok) {
                 const errorData = await response.text();

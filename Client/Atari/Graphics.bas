@@ -621,8 +621,6 @@ PROC DrawPlayerHand _col _row _numCards _folded
 ENDPROC
 
 
-
-
 ' ============================================================================
 ' Init screen/graphics - leaves screen blank. ShowScreen must be called afer
 PROC InitScreen

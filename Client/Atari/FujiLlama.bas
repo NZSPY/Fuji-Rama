@@ -205,7 +205,7 @@ UNIT=1
 JSON_MODE=1
 URL$=""
 
-BaseURL$="N:https://fuji-llama-971660789205.asia-southeast1.run.app"
+BaseURL$="N:https://fujillama.sypsoft.nz"
 ' BaseURL$="N:HTTP://192.168.68.100:8080"
 QUERY$=""$9B
 JSON$="/tables"
