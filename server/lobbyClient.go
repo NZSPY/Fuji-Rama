@@ -16,7 +16,7 @@ const (
 // Defaults for this game server
 // Appkey/game are hard coded, but the others could be read from a config file
 var DefaultGameServerDetails = GameServer{
-	Appkey:    1,
+	Appkey:    4,
 	Game:      "Fuji-Llama",
 	Region:    "nz",
 	Serverurl: "https://fujillama.spysoft.nz/",
