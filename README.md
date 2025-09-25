@@ -15,5 +15,12 @@ and be playable on multiply different 8 bit computers
 I'm an Atarian, so will be writing the client for the Atari 8 bit computers first and hopefully 
 someone else will decide to write it for other platforms as time goes on.
 
+Atari 8 bit version is now avalaibe as an EXE for Beta testing, in the Client folders
+
 You can try the Web client by usign the following URL
 https://nzspy.github.io/Fuji-Llama/Client/Web/index.html
+
+
+If you like what im doign here, please consider  buying orginal physical card game
+See boardgame geek for more details about the orginal Card game 
+https://boardgamegeek.com/boardgame/266083/llama
