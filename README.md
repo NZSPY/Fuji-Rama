@@ -22,5 +22,5 @@ https://nzspy.github.io/Fuji-Llama/Client/Web/index.html
 
 
 If you like what im doign here, please consider  buying orginal physical card game
-See boardgame geek for more details anbout teh orginal Card game 
+See boardgame geek for more details about the orginal Card game 
 https://boardgamegeek.com/boardgame/266083/llama
