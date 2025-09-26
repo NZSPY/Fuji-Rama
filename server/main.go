@@ -368,7 +368,7 @@ func dealCards(tableIndex int) {
 			gameStates[tableIndex].NumCards--                                                                   // Decrement the number of cards in the deck
 			player.NumCards++                                                                                   // Increment the number of cards in the player's hand
 		}
-		sortCards(tableIndex, i) // Sort the player's hand after dealing
+		// sortCards(tableIndex, i) // Sort the player's hand after dealing
 	}
 
 }
@@ -760,7 +760,7 @@ func addCardtohand(tableIndex int, playerIndex int) {
 	gameStates[tableIndex].Players[playerIndex].Hand = append(gameStates[tableIndex].Players[playerIndex].Hand, gameStates[tableIndex].Maindeck[gameStates[tableIndex].NumCards]) // draw the last card from the deck
 	gameStates[tableIndex].NumCards--                                                                                                                                             // Decrement the number of cards in the deck
 	gameStates[tableIndex].Players[playerIndex].NumCards++
-	sortCards(tableIndex, playerIndex)
+	// sortCards(tableIndex, playerIndex)
 }
 
 // aiMove simulates an player's just dumb move by returning the first valid move from the AI player's valid moves.
@@ -984,14 +984,23 @@ func makeHandSummary(tableIndex int, playerIndex int) string {
 
 // Forces an update of all tables to the lobby - useful for adhoc use if the Lobby restarts or loses info
 func apiUpdateLobby(c *gin.Context) {
+
 	/*
-		for _, table := range tables {
-			value, ok := stateMap.Load(table.Table)
-			if ok {
-				state := value.(*GameState)
-				state.updateLobby()
-			}
-		}
+	          for _, table := range tables {
+
+	   				sendStateToLobby(maxPlayers, curPlayers, isOnline , server , instanceUrlSuffix )
+
+
+	   		}
+
+	   	/*
+	   		for _, table := range tables {
+	   			value, ok := stateMap.Load(table.Table)
+	   			if ok {
+	   				state := value.(*GameState)
+	   				state.updateLobby()
+	   			}
+	   		}
 	*/
 	c.JSON(http.StatusOK, "Lobby Updated")
 }

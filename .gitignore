@@ -2,6 +2,7 @@
 /.vscode/*
 /serverEC/*
 Graphics.*
+/localtest/*
 /Client/Atari/bin/*.asm
 Client/Atari/bin/*.o 
 Client/Atari/bin/debug.*
