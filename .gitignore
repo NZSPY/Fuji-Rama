@@ -9,3 +9,8 @@ Client/Atari/bin/*.bas
 Client/Atari/bin/*.lst
 Client/Atari/bin/*.lbl
 Client/Atari/bin/*.lst
+
+# Go build artifacts
+server/fuji-llama-server
+server/*.exe
+*.exe
