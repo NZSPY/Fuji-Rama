@@ -1,0 +1,35 @@
+version: "1.0"
+title: "Fuji-Llama Card Game Server"
+description: |
+  A Llama card game server written in Go with multiple clients including web and Atari 8-bit.
+  This environment provides everything you need to develop, test, and deploy the game server.
+
+tags:
+  - "golang"
+  - "game-server"
+  - "cloud-run"
+  - "rest-api"
+
+image: "gcr.io/cloudshell-images/cloudshell:latest"
+
+timeout: 1800  # 30 minutes
+
+environment:
+  PORT: "8080"
+  
+tasks:
+  - name: "Setup Environment"
+    description: "Initialize the development environment"
+    command: "./.cloudshell/cloudshell_open/prepare_environment.sh"
+    
+  - name: "Run Server Locally"
+    description: "Start the Go server on port 8080"
+    command: "cd server && go run ."
+    
+  - name: "Deploy to Cloud Run"
+    description: "Deploy the server to Google Cloud Run"
+    command: "cd server && ./deploy.sh"
+    
+  - name: "Open Tutorial"
+    description: "Open the development tutorial"
+    command: "cloudshell open-tutorial .cloudshell/tutorial.md"

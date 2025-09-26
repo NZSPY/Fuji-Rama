@@ -1,4 +1,7 @@
 # Fuji-Llama 
+
+[![Open in Cloud Shell](https://gstatic.com/cloudssh/images/open-btn.svg)](https://shell.cloud.google.com/cloudshell/editor?cloudshell_git_repo=https://github.com/NZSPY/Fuji-Llama&cloudshell_tutorial=.cloudshell/tutorial.md&cloudshell_workspace=.)
+
 This is a Llama Card game server written in GO.  
 This is my first project in GO and all the server code is lifted from Eric Carr's work on 5 card stud and Fujitzee,  
 
@@ -19,6 +22,19 @@ Atari 8 bit version is now avalaibe as an EXE for Beta testing, in the Client fo
 
 You can try the Web client by usign the following URL
 https://nzspy.github.io/Fuji-Llama/Client/Web/index.html
+
+## Development in Google Cloud Shell
+
+Click the "Open in Cloud Shell" button above to quickly set up a development environment with:
+- Pre-configured Go environment
+- Direct access to Google Cloud services for deployment
+- Built-in code editor and terminal
+- Step-by-step tutorial to get you started
+
+The Cloud Shell environment includes everything you need to:
+1. Run the server locally for testing
+2. Deploy to Google Cloud Run with one command
+3. Access the web client through Cloud Shell's web preview
 
 
 If you like what im doign here, please consider  buying orginal physical card game
