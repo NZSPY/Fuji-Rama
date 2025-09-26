@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -47,9 +48,9 @@ type GameClient struct {
 
 func sendStateToLobby(maxPlayers int, curPlayers int, isOnline bool, server string, instanceUrlSuffix string) {
 
-	if !UpdateLobby {
-		return
-	}
+	//if !UpdateLobby {
+	//	return
+	//}
 
 	// Start with copy of default game server details
 	serverDetails := DefaultGameServerDetails
@@ -69,7 +70,7 @@ func sendStateToLobby(maxPlayers int, curPlayers int, isOnline bool, server stri
 		panic(err)
 	}
 	log.Printf("Updating Lobby: %s", jsonPayload)
-
+	fmt.Printf("Updating Lobby: %s", jsonPayload)
 	request, err := http.NewRequest("POST", LOBBY_ENDPOINT_UPSERT, bytes.NewBuffer(jsonPayload))
 	if err != nil {
 		panic(err)
@@ -80,6 +81,7 @@ func sendStateToLobby(maxPlayers int, curPlayers int, isOnline bool, server stri
 	response, err := client.Do(request)
 	if err != nil {
 		log.Println(err)
+		fmt.Println(err)
 		return
 	}
 	defer response.Body.Close()
@@ -88,6 +90,7 @@ func sendStateToLobby(maxPlayers int, curPlayers int, isOnline bool, server stri
 	if response.StatusCode > 300 {
 		body, _ := io.ReadAll(response.Body)
 		log.Println("response Body:", string(body))
+		fmt.Println("response Body:", string(body))
 	}
 
 }

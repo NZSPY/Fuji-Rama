@@ -968,12 +968,6 @@ func setPlayorOrder(tableIndex int) {
 
 }
 
-func sortCards(tableIndex int, playerIndex int) {
-	sort.SliceStable(gameStates[tableIndex].Players[playerIndex].Hand[:], func(i, j int) bool {
-		return gameStates[tableIndex].Players[playerIndex].Hand[i].Cardvalue < gameStates[tableIndex].Players[playerIndex].Hand[j].Cardvalue
-	})
-}
-
 func makeHandSummary(tableIndex int, playerIndex int) string {
 	summary := ""
 	for _, card := range gameStates[tableIndex].Players[playerIndex].Hand {
@@ -985,22 +979,20 @@ func makeHandSummary(tableIndex int, playerIndex int) string {
 // Forces an update of all tables to the lobby - useful for adhoc use if the Lobby restarts or loses info
 func apiUpdateLobby(c *gin.Context) {
 
+	for i := 0; i < len(gameStates); i++ {
+
+		sendStateToLobby(gameStates[i].Table.MaxPlayers, gameStates[i].Table.CurPlayers, false, gameStates[i].Table.Name, "https://fujillama.spysoft.nz/")
+
+	}
+
 	/*
-	          for _, table := range tables {
-
-	   				sendStateToLobby(maxPlayers, curPlayers, isOnline , server , instanceUrlSuffix )
-
-
-	   		}
-
-	   	/*
-	   		for _, table := range tables {
-	   			value, ok := stateMap.Load(table.Table)
-	   			if ok {
-	   				state := value.(*GameState)
-	   				state.updateLobby()
-	   			}
-	   		}
+		for _, table := range tables {
+			value, ok := stateMap.Load(table.Table)
+			if ok {
+				state := value.(*GameState)
+				state.updateLobby()
+			}
+		}
 	*/
 	c.JSON(http.StatusOK, "Lobby Updated")
 }

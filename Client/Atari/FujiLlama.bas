@@ -18,10 +18,6 @@ AK_KEY_COLORTHEME = 1       ' Color theme
 
 DATA NAppKeyBlock()=0,0,0
 
-
-
-
-
 ' Disable BASIC on XL/XE to make more memory available. (found in Erics 5card code don't know if I need it or not)
 if dpeek(741)-$BC00<0
   ' Disable BASIC
@@ -221,6 +217,7 @@ serverEndpoint$=""
 query$=""
 
 @NReadAppKey AK_LOBBY_CREATOR_ID, AK_LOBBY_APP_ID, AK_LOBBY_KEY_SERVER, &serverEndpoint$
+serverEndpoint$="" ' Clear for testing - comment out to use lobby server setting
 
 ' Parse endpoint url into server and query
 if serverEndpoint$<>""
@@ -234,7 +231,7 @@ if serverEndpoint$<>""
 else
   ' Default to known server if not specified by lobby. Override for local testing
   serverEndpoint$="N:https://fujillama.spysoft.nz"
-  'serverEndpoint$="http://192.168.68.100:8080/"
+  'serverEndpoint$="N:http://192.168.68.100:8080"
 endif
 
 ' Fuji-Net Setup Variblies 
