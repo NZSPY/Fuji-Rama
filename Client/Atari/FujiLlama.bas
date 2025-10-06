@@ -242,6 +242,13 @@ myName$=""
   @ToUpper(&myName$)
 
 if len(myName$)=0 then myName$="LORENZO" ' Default if not loaded from the App key 
+if len(myName$)>10 then myName$=myName$[1,10] ' Limit name to 10 characters
+for i=1 to len(myName$)
+  if myName$[i,1]=" " 
+  myName$=myName$[1,i]  ' if space in name truncate it
+  exit
+  endif
+next i
 
 ' Game state variables
 Drawdeck=0
@@ -721,7 +728,7 @@ PROC SetPlayerName
       endif
     loop
 
-' Name has been captured. Save to app key 
+  ' Name has been captured. Save to app key 
     @NWriteAppKey AK_LOBBY_CREATOR_ID, AK_LOBBY_APP_ID, AK_LOBBY_KEY_USERNAME, &myName$
   
 ENDPROC
