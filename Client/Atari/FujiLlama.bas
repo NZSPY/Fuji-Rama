@@ -245,7 +245,7 @@ if len(myName$)=0 then myName$="LORENZO" ' Default if not loaded from the App ke
 if len(myName$)>10 then myName$=myName$[1,10] ' Limit name to 10 characters
 for i=1 to len(myName$)
   if myName$[i,1]=" " 
-  myName$=myName$[1,i]  ' if space in name truncate it
+  myName$=myName$[1,i-1]  ' if space in name truncate it
   exit
   endif
 next i
