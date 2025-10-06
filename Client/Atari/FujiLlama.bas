@@ -212,12 +212,13 @@ DATA colorThemeMap()      =  $B4,$88,  $84,$08, $22,$28, $04,$08,' NTSC
 DATA                      =  $A4,$78,  $74,$08, $12,$18, $04,$08 ' PAL 
 colorTheme=-1
 
-' Read server endpoint stored from Lobby
+
 serverEndpoint$=""
 query$=""
 
+' Read server endpoint stored from Lobby
 @NReadAppKey AK_LOBBY_CREATOR_ID, AK_LOBBY_APP_ID, AK_LOBBY_KEY_SERVER, &serverEndpoint$
-serverEndpoint$="" ' Clear for testing - comment out to use lobby server setting
+'serverEndpoint$="" ' Clear for testing - comment out to use lobby server setting
 
 ' Parse endpoint url into server and query
 if serverEndpoint$<>""
@@ -231,7 +232,7 @@ if serverEndpoint$<>""
 else
   ' Default to known server if not specified by lobby. Override for local testing
   serverEndpoint$="N:https://fujillama.spysoft.nz"
-  'serverEndpoint$="N:http://192.168.68.100:8080"
+  'serverEndpoint$="N:http://192.168.68.100:8080" ' Local server for testing
 endif
 
 ' Fuji-Net Setup Variblies 

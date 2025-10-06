@@ -11,7 +11,8 @@ import (
 )
 
 const (
-	LOBBY_ENDPOINT_UPSERT = "http://lobby.fujinet.online/server"
+	// LOBBY_ENDPOINT_UPSERT = "http://qalobby.fujinet.online/server" --- use for testing
+	LOBBY_ENDPOINT_UPSERT = "http://qalobby.fujinet.online/server"
 )
 
 // Defaults for this game server
@@ -20,9 +21,9 @@ var DefaultGameServerDetails = GameServer{
 	Appkey:    4,
 	Game:      "Fuji-Llama",
 	Region:    "nz",
-	Serverurl: "https://fujillama.spysoft.nz/",
+	Serverurl: "N:https://fujillama.spysoft.nz",
 	Clients: []GameClient{
-		{Platform: "atari", Url: "tnfs://ec.tnfs.io/atari/fujillama.xex"},
+		{Platform: "atari", Url: "tnfs://34.31.166.226/atari/fujillama.xex"},
 	},
 }
 
@@ -48,10 +49,6 @@ type GameClient struct {
 
 func sendStateToLobby(maxPlayers int, curPlayers int, isOnline bool, server string, instanceUrlSuffix string) {
 
-	//if !UpdateLobby {
-	//	return
-	//}
-
 	// Start with copy of default game server details
 	serverDetails := DefaultGameServerDetails
 	serverDetails.Maxplayers = maxPlayers
@@ -64,12 +61,12 @@ func sendStateToLobby(maxPlayers int, curPlayers int, isOnline bool, server stri
 
 	serverDetails.Server = server
 	serverDetails.Serverurl += instanceUrlSuffix
+	//serverDetails.Serverurl += ""
 
 	jsonPayload, err := json.Marshal(serverDetails)
 	if err != nil {
 		panic(err)
 	}
-	log.Printf("Updating Lobby: %s", jsonPayload)
 	fmt.Printf("Updating Lobby: %s", jsonPayload)
 	request, err := http.NewRequest("POST", LOBBY_ENDPOINT_UPSERT, bytes.NewBuffer(jsonPayload))
 	if err != nil {
@@ -89,7 +86,6 @@ func sendStateToLobby(maxPlayers int, curPlayers int, isOnline bool, server stri
 	log.Printf("Lobby Response: %s", response.Status)
 	if response.StatusCode > 300 {
 		body, _ := io.ReadAll(response.Body)
-		log.Println("response Body:", string(body))
 		fmt.Println("response Body:", string(body))
 	}
 

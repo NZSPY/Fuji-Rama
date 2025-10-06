@@ -121,7 +121,8 @@ func main() {
 			EndedLast:      -1,
 			RoundOver:      false,
 			Gameover:       false}
-		SetupTable(i) // Initialize each table with a new deck and shuffle it
+		setUpTable(i)  // Initialize each table with a new deck and shuffle it
+		updateLobby(i) // Update the lobby with the initial state of each table
 	}
 
 	router := gin.Default()
@@ -132,7 +133,6 @@ func main() {
 	router.GET("/join", joinTable)        // Join a table
 	router.GET("/start", StartNewGame)    // start a new game on a table (this also happens automaticly when the table is filled with players), if the table is not filled  it will fill the emplty slots with AI Players
 	router.GET("/move", doVaildMoveURL)   // Make a move on the table (play, fold, draw)
-	router.GET("/updateLobby", apiUpdateLobby)
 
 	// Set up router and start server
 	router.SetTrustedProxies(nil) // Disable trusted proxies because Gin told me to do it.. (neeed to investigate this further)
@@ -189,7 +189,7 @@ func NewDeck() []Card {
 	return deck
 }
 
-func SetupTable(tableIndex int) {
+func setUpTable(tableIndex int) {
 	if tableIndex < 0 || tableIndex >= len(gameStates) {
 		return // Invalid table index
 	}
@@ -280,6 +280,7 @@ func joinTable(c *gin.Context) {
 		tables[tableIndex].CurPlayers = gameStates[tableIndex].Table.CurPlayers // update the quick table view players count
 		tables[tableIndex].Status = gameStates[tableIndex].Table.Status         // update the quick table view status
 		gameStates[tableIndex].startTime = time.Now()                           // Reset the waiting timer for the game state
+		updateLobby(tableIndex)                                                 // Update the lobby with the new table state
 	}
 }
 
@@ -936,7 +937,7 @@ func resetGame(tableIndex int) {
 		Players:        Players{},
 		LastMovePlayed: "Waiting for players to join",
 	}
-	SetupTable(tableIndex) // Initialize each table with a new deck and shuffle it
+	setUpTable(tableIndex) // Initialize each table with a new deck and shuffle it
 }
 
 // Reset the game state for the next round
@@ -976,23 +977,10 @@ func makeHandSummary(tableIndex int, playerIndex int) string {
 	return strings.TrimSpace(summary)
 }
 
-// Forces an update of all tables to the lobby - useful for adhoc use if the Lobby restarts or loses info
-func apiUpdateLobby(c *gin.Context) {
+// update game table info to the lobby fujinet lobby server
+func updateLobby(tableIndex int) {
+	instanceUrlSuffix := "/?table=" + gameStates[tableIndex].Table.Table
+	sendStateToLobby(gameStates[tableIndex].Table.MaxPlayers, gameStates[tableIndex].Table.CurPlayers, true, gameStates[tableIndex].Table.Name, instanceUrlSuffix)
 
-	for i := 0; i < len(gameStates); i++ {
-
-		sendStateToLobby(gameStates[i].Table.MaxPlayers, gameStates[i].Table.CurPlayers, false, gameStates[i].Table.Name, "https://fujillama.spysoft.nz/")
-
-	}
-
-	/*
-		for _, table := range tables {
-			value, ok := stateMap.Load(table.Table)
-			if ok {
-				state := value.(*GameState)
-				state.updateLobby()
-			}
-		}
-	*/
-	c.JSON(http.StatusOK, "Lobby Updated")
+	fmt.Println("lobby updated for :", string(gameStates[tableIndex].Table.Name))
 }
