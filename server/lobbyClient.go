@@ -12,7 +12,7 @@ import (
 
 const (
 	// LOBBY_ENDPOINT_UPSERT = "http://qalobby.fujinet.online/server" --- use for testing
-	LOBBY_ENDPOINT_UPSERT = "http://qalobby.fujinet.online/server"
+	LOBBY_ENDPOINT_UPSERT = "http://lobby.fujinet.online/server"
 )
 
 // Defaults for this game server

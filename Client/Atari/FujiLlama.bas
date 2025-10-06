@@ -213,27 +213,8 @@ DATA                      =  $A4,$78,  $74,$08, $12,$18, $04,$08 ' PAL
 colorTheme=-1
 
 
-serverEndpoint$=""
-query$=""
-
-' Read server endpoint stored from Lobby
-@NReadAppKey AK_LOBBY_CREATOR_ID, AK_LOBBY_APP_ID, AK_LOBBY_KEY_SERVER, &serverEndpoint$
-'serverEndpoint$="" ' Clear for testing - comment out to use lobby server setting
-
-' Parse endpoint url into server and query
-if serverEndpoint$<>""
-  for i=1 to len(serverEndpoint$)
-    if serverEndpoint$[i,1]="?"
-      query$=serverEndpoint$[i]
-      serverEndpoint$=serverEndpoint$[1,i-1]
-      exit
-    endif
-  next
-else
-  ' Default to known server if not specified by lobby. Override for local testing
-  serverEndpoint$="N:https://fujillama.spysoft.nz"
-  'serverEndpoint$="N:http://192.168.68.100:8080" ' Local server for testing
-endif
+serverEndpoint$="N:https://fujillama.spysoft.nz"
+'serverEndpoint$="N:http://192.168.68.100:8080" ' Local server for testing
 
 ' Fuji-Net Setup Variblies 
 UNIT=1

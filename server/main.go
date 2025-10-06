@@ -352,8 +352,8 @@ func StartNewGame(c *gin.Context) {
 		tables[tableIndex].Status = gameStates[tableIndex].Table.Status                                                                   // Update the quick table view status
 		gameStates[tableIndex].Players[0].Status = STATUS_PLAYING                                                                         // make the first player status to playing
 		gameStates[tableIndex].LastMovePlayed = "Game Started, Waiting for " + gameStates[tableIndex].Players[0].Name + " to make a move" // Update the last move played to indicate the game has started
-
-		dealCards(tableIndex) // Deal cards to all players at the table
+		updateLobby(tableIndex)                                                                                                           // Update the lobby with the new table state
+		dealCards(tableIndex)                                                                                                             // Deal cards to all players at the table
 
 	}
 }
@@ -937,7 +937,8 @@ func resetGame(tableIndex int) {
 		Players:        Players{},
 		LastMovePlayed: "Waiting for players to join",
 	}
-	setUpTable(tableIndex) // Initialize each table with a new deck and shuffle it
+	setUpTable(tableIndex)  // Initialize each table with a new deck and shuffle it
+	updateLobby(tableIndex) // Update the lobby with the new table state
 }
 
 // Reset the game state for the next round
