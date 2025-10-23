@@ -815,14 +815,39 @@ func EndofRoundScore(tableIndex int) {
 			a := 0
 			b := 0
 			c := 0
+			f1 := 0
+			f2 := 0
+			f3 := 0
+			f4 := 0
+			f5 := 0
+			f6 := 0
+			f7 := 0
+			// Calculate the score based on the cards remaining in the player's hand
 			for _, card := range gameStates[tableIndex].Players[i].Hand {
 				switch {
 				case card.Cardvalue == 0:
 					// do nothing
-				case card.Cardvalue == 7:
-					b++ // Llama is worth 1 black counter (10 points)
-				default:
+				case card.Cardvalue == 1 && f1 == 0:
 					a = a + card.Cardvalue
+					f1++
+				case card.Cardvalue == 2 && f2 == 0:
+					a = a + card.Cardvalue
+					f2++
+				case card.Cardvalue == 3 && f3 == 0:
+					a = a + card.Cardvalue
+					f3++
+				case card.Cardvalue == 4 && f4 == 0:
+					a = a + card.Cardvalue
+					f4++
+				case card.Cardvalue == 5 && f5 == 0:
+					a = a + card.Cardvalue
+					f5++
+				case card.Cardvalue == 6 && f6 == 0:
+					a = a + card.Cardvalue
+					f6++
+				case card.Cardvalue == 7 && f7 == 0:
+					b++ // Llama is worth 1 black token (10 points)
+					f7++
 				}
 			}
 

@@ -23,7 +23,7 @@ var DefaultGameServerDetails = GameServer{
 	Region:    "nz",
 	Serverurl: "N:https://fujillama.spysoft.nz",
 	Clients: []GameClient{
-		{Platform: "atari", Url: "tnfs://34.31.166.226/atari/fujillama.xex"},
+		{Platform: "atari", Url: "tnfs://tnfs.spysoft.nz/atari/fujillama.xex"},
 	},
 }
 
