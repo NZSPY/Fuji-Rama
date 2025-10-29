@@ -1101,7 +1101,7 @@ ENDPROC
 
 PROC DrawGameState 
   ' Draw the current game state on the screen
-  if GameStatus(tablenumber)=5 then Exit ' if game over do not redraw screen
+  if GameStatus(tablenumber)=4 or GameStatus(tablenumber)=5 then Exit ' if game over do not redraw screen
   @EnableDoubleBuffer
   @ResetScreen
   @POS 0,5: @PrintINV &"@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
