@@ -4,6 +4,8 @@
 ' @version September 2025
 ' This is a client for the Fuji-Llama game server
 
+
+
 ' FujiNet AppKey settings. These should not be changed
 AK_LOBBY_CREATOR_ID = 1     ' FUJINET Lobby
 AK_LOBBY_APP_ID  = 1        ' Lobby Enabled Game
@@ -212,7 +214,7 @@ DATA colorThemeMap()      =  $B4,$88,  $84,$08, $22,$28, $04,$08,' NTSC
 DATA                      =  $A4,$78,  $74,$08, $12,$18, $04,$08 ' PAL 
 colorTheme=-1
 
-
+gameversion=1
 serverEndpoint$="N:https://fujillama.spysoft.nz"
 'serverEndpoint$="N:http://192.168.68.100:8080" ' Local server for testing
 
@@ -360,6 +362,7 @@ PROC MoveAnimation
   @POS 1,2: @PrintUpper &PlayerName$(a):@printUpper &" is:"
   if dummy$="drew" 
     @POS 1,3: @PrintUpper &"Drawing"
+    inc Drawdeck
     @UpdateScreenBuffer
     @DrawCardFromDeck xStart(a),yStart(a),9 
   elif dummy$="play" 
@@ -367,7 +370,6 @@ PROC MoveAnimation
     @PlayCard a
   elif dummy$="fold" 
     @POS 1,3: @PrintUpper &"Folding"
-    get K
   Endif
 EndProc
 
@@ -417,6 +419,7 @@ PROC TitleScreen
   X=(32-len(MyName$))/2
   @POS X,18:@Print &"WELCOME ":@Print &MyName$
   @POS 7,20:@Print &"PRESS ANY KEY TO CONTINUE"
+  @POS 37,25:@Print &"V0": @PrintVAL gameversion
   @POS 5,25:@Print &"H-HELP C-COLOR N-NAME Q-QUIT"
   @DrawBufferEnd
   @ShowScreen
@@ -960,7 +963,7 @@ Proc DealCards
   data xend4()=38,36,34,32,30,28
   data xend5()=38,36,34,32,30,28
   for cardnumber=1 to 6
-    for player=0 to 5
+      for player=0 to 5
       if player=0 and playerName$(player)<>"" then @DrawCardFromDeck xend0(cardnumber-1),yend(player),VAL(PlayerHand$(player)[cardnumber,1])
       if player=1 and playerName$(player)<>"" then @DrawCardFromDeck xend1(cardnumber-1),yend(player),9
       if player=2 and playerName$(player)<>"" then @DrawCardFromDeck xend2(cardnumber-1),yend(player),9
@@ -1035,6 +1038,9 @@ ENDPROC
 
 Proc DrawCardFromDeck _endX _endY _card
   SOUND 0,121,1,8
+  dec Drawdeck
+  @POS 19,13: @PrintVal Drawdeck
+  @UpdateScreenBuffer
   dx=18:dy=10: endX=_endX : endY=_endY : card=_card
   xchange=-1:ychange=-1
   if endX>dx then xchange=1 
@@ -1050,8 +1056,7 @@ Proc DrawCardFromDeck _endX _endY _card
       @DrawCard dx,dy,card
     endif
   until dx=endx and dy=endy
-  dec Drawdeck
-  @POS 19,13: @PrintVal Drawdeck
+ ' @POS 19,13: @PrintVal Drawdeck
   @UpdateScreenBuffer
   sound
 ENDPROC
