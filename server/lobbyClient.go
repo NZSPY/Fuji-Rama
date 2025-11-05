@@ -10,11 +10,6 @@ import (
 	"github.com/goccy/go-json"
 )
 
-const (
-	// LOBBY_ENDPOINT_UPSERT = "http://qalobby.fujinet.online/server" --- use for testing
-	LOBBY_ENDPOINT_UPSERT = "http://lobby.fujinet.online/server"
-)
-
 // Defaults for this game server
 // Appkey/game are hard coded, but the others could be read from a config file
 var DefaultGameServerDetails = GameServer{
@@ -26,8 +21,6 @@ var DefaultGameServerDetails = GameServer{
 		{Platform: "atari", Url: "tnfs://tnfs.spysoft.nz/atari/fujillama.xex"},
 	},
 }
-
-var UpdateLobby bool
 
 type GameServer struct {
 	// Properties being sent from Game Server
@@ -68,6 +61,7 @@ func sendStateToLobby(maxPlayers int, curPlayers int, isOnline bool, server stri
 		panic(err)
 	}
 	fmt.Printf("Updating Lobby: %s", jsonPayload)
+
 	request, err := http.NewRequest("POST", LOBBY_ENDPOINT_UPSERT, bytes.NewBuffer(jsonPayload))
 	if err != nil {
 		panic(err)

@@ -29,6 +29,8 @@ type GameState struct {
 }
 
 var gameStates = make([]GameState, 7)
+var LOBBY_ENDPOINT_UPSERT string
+var UpdateLobby bool
 
 type GameTable struct {
 	Table      string `json:"t"`
@@ -45,8 +47,8 @@ var tables = []GameTable{
 	{Table: "ai3", Name: "AI Room - 3 bots", CurPlayers: 0, MaxPlayers: 6, maxBots: 3, Status: 0},
 	{Table: "ai4", Name: "AI Room - 4 bots", CurPlayers: 0, MaxPlayers: 6, maxBots: 4, Status: 0},
 	{Table: "ai5", Name: "AI Room - 5 bots", CurPlayers: 0, MaxPlayers: 6, maxBots: 5, Status: 0},
-	{Table: "river", Name: "The River", CurPlayers: 0, MaxPlayers: 6, maxBots: 0, Status: 0},
-	{Table: "cave", Name: "Cave of Caerbannog", CurPlayers: 0, MaxPlayers: 6, maxBots: 0, Status: 0},
+	{Table: "river", Name: "The River", CurPlayers: 0, MaxPlayers: 6, maxBots: 5, Status: 0},
+	{Table: "cave", Name: "Cave of Caerbannog", CurPlayers: 0, MaxPlayers: 6, maxBots: 5, Status: 0},
 }
 
 type Status int
@@ -97,9 +99,13 @@ func main() {
 	UpdateLobby = os.Getenv("GO_PROD") == "1"
 
 	if UpdateLobby {
-		log.Printf("This instance will update the lobby at " + LOBBY_ENDPOINT_UPSERT)
 		gin.SetMode(gin.ReleaseMode)
+		LOBBY_ENDPOINT_UPSERT = "http://lobby.fujinet.online/server"
+	} else {
+		LOBBY_ENDPOINT_UPSERT = "http://qalobby.fujinet.online/server"
 	}
+
+	log.Print("This instance will update the lobby at " + LOBBY_ENDPOINT_UPSERT)
 
 	// Determine port for HTTP service.
 	port := os.Getenv("PORT")
@@ -136,7 +142,6 @@ func main() {
 
 	// Set up router and start server
 	router.SetTrustedProxies(nil) // Disable trusted proxies because Gin told me to do it.. (neeed to investigate this further)
-
 	router.Run(":" + port)
 }
 
@@ -272,6 +277,9 @@ func joinTable(c *gin.Context) {
 		gameStates[tableIndex].Players = append(gameStates[tableIndex].Players, newplayer)
 		gameStates[tableIndex].Players[len(gameStates[tableIndex].Players)-1].Playorder = gameStates[tableIndex].Table.CurPlayers // Set the play order for the new player
 		gameStates[tableIndex].Table.CurPlayers++                                                                                 // Increment the current players count
+		if (gameStates[tableIndex].Table.Table == "cave" || gameStates[tableIndex].Table.Table == "river") && gameStates[tableIndex].Table.CurPlayers > 1 {
+			gameStates[tableIndex].Table.maxBots = 0 // No bots allowed in cave or river if more than 2 or more human players
+		}
 		if gameStates[tableIndex].Table.CurPlayers >= gameStates[tableIndex].Table.MaxPlayers {
 			gameStates[tableIndex].Table.Status = 1 // Set the status to full if max players reached
 			c.Params = []gin.Param{{Key: "sup", Value: "1"}}
@@ -328,6 +336,7 @@ func StartNewGame(c *gin.Context) {
 			c.JSON(http.StatusOK, "New game started on table "+tables[tableIndex].Table)
 		}
 		// fill up the empty slots with AI players if there are less than 6 players up to the maxiumum  bots allowed at that table
+
 		for i := 0; i < gameStates[tableIndex].Table.maxBots; i++ {
 			if gameStates[tableIndex].Table.CurPlayers >= (gameStates[tableIndex].Table.MaxPlayers) {
 				break // Stop adding AI players if the maximum number of players is reached
@@ -346,6 +355,10 @@ func StartNewGame(c *gin.Context) {
 			}
 			gameStates[tableIndex].Players = append(gameStates[tableIndex].Players, newAIPlayer)
 			gameStates[tableIndex].Table.CurPlayers++
+		}
+
+		if (gameStates[tableIndex].Table.Table == "cave" || gameStates[tableIndex].Table.Table == "river") && gameStates[tableIndex].Table.CurPlayers > 1 {
+			gameStates[tableIndex].Table.maxBots = 6 // restore max bots to 6 for cave and river tables
 		}
 		gameStates[tableIndex].Table.Status = 3                                                                                           // Set the table status to playing
 		tables[tableIndex].CurPlayers = gameStates[tableIndex].Table.CurPlayers                                                           // Update the quick table view players count
