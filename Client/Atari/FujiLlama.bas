@@ -214,15 +214,36 @@ DATA colorThemeMap()      =  $B4,$88,  $84,$08, $22,$28, $04,$08,' NTSC
 DATA                      =  $A4,$78,  $74,$08, $12,$18, $04,$08 ' PAL 
 colorTheme=-1
 
-gameversion=1
-serverEndpoint$="N:https://fujillama.spysoft.nz"
-'serverEndpoint$="N:http://192.168.68.100:8080" ' Local server for testing
+gameversion=2
+serverEndpoint$=""
+query$=""
+' Read server endpoint stored from Lobby
+@NReadAppKey AK_LOBBY_CREATOR_ID, AK_LOBBY_APP_ID, AK_LOBBY_KEY_SERVER, &serverEndpoint$
+
+' Parse endpoint url into server and query
+if serverEndpoint$<>""
+  for i=1 to len(serverEndpoint$)
+    if serverEndpoint$[i,1]="?"
+      query$=serverEndpoint$[i]
+      serverEndpoint$=serverEndpoint$[1,i-2]
+      exit
+    endif
+  next
+else
+  ' Default to known server if not specified by lobby. Override for local testing
+  serverEndpoint$="N:https://fujillama.spysoft.nz"
+  QUERY$=""$9B 
+  'serverEndpoint$="N:http://192.168.68.100:8080" ' Local server for testing
+endif
+
+' Write server endpoint back to app key so when game is relaunched without the lobby it uses the same server
+@NWriteAppKey AK_LOBBY_CREATOR_ID, AK_LOBBY_APP_ID, AK_LOBBY_KEY_SERVER, &serverEndpoint$
+
 
 ' Fuji-Net Setup Variblies 
 UNIT=1
 JSON_MODE=1
 URL$=""
-QUERY$=""$9B
 JSON$="/tables"
 dummy$=""
 
@@ -298,7 +319,17 @@ WaitTime=Time
 ' Loop until the player has successfully joined a table
 DO
   Repeat
-    @tableSelection
+    if QUERY$[1,1]<>"?"
+      @tableSelection
+    else 
+      tablenumber=1 
+        for i=1 to len(QUERY$)
+          if QUERY$[i,1]="="
+          TableID$(TableNumber)=QUERY$[i+1,5]
+          endif
+        next i
+      @JoinTable
+    Endif
     @checkErrors
   UNTIL OK=1
   
@@ -520,6 +551,10 @@ PROC TableSelection
   TableNumber=K-48 ' Convert ASCII to number
   UNTIL TableNumber>0 and TableNumber<8
   DEC TableNumber ' Convert to array index
+  @JoinTable
+ENDPROC
+
+Proc JoinTable
   JSON$="/join?table="
   JSON$=+TableID$(TableNumber) ' Join the table based on the number selected
   JSON$=+"&player="
@@ -529,7 +564,7 @@ PROC TableSelection
   @CallFujiNet ' Call the FujiNet API to join the table
   @NInputInit UNIT, &responseBuffer ' Initialize reading the api response
   @NInput &dummy$ ' Read the response from the FujiNet API
-ENDPROC
+EndProc
 
 PROC ReadKeyPresses
   K=KEY()
@@ -1488,6 +1523,7 @@ ENDPROC
 '--------------------------------------------------------------
 PROC CallFujiNet
   dummy$=""
+  QUERY$=""$9B
   URL$=serverEndpoint$
   URL$=+JSON$
   URL$=+""$9B
