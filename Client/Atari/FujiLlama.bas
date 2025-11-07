@@ -214,7 +214,7 @@ DATA colorThemeMap()      =  $B4,$88,  $84,$08, $22,$28, $04,$08,' NTSC
 DATA                      =  $A4,$78,  $74,$08, $12,$18, $04,$08 ' PAL 
 colorTheme=-1
 
-gameversion=2
+gameversion=3
 serverEndpoint$=""
 query$=""
 ' Read server endpoint stored from Lobby
@@ -322,7 +322,7 @@ DO
     if QUERY$[1,1]<>"?"
       @tableSelection
     else 
-      tablenumber=1 
+      ' tablenumber=1 
         for i=1 to len(QUERY$)
           if QUERY$[i,1]="="
           TableID$(TableNumber)=QUERY$[i+1,5]
@@ -453,7 +453,7 @@ PROC TitleScreen
   @POS 37,25:@Print &"V0": @PrintVAL gameversion
   @POS 5,25:@Print &"H-HELP C-COLOR N-NAME Q-QUIT"
   @DrawBufferEnd
-  @ShowScreen
+  ' @ShowScreen
   Repeat 
   GET K
   if K=67 then @CycleColorTheme
@@ -482,7 +482,7 @@ PROC TableSelection
   @ResetScreen
   @DrawTableSelection
   @DrawBufferEnd
-  @ShowScreen
+  ' @ShowScreen
   JSON$="/tables"
   @CallFujiNet
   @NInputInit UNIT, &responseBuffer
@@ -519,7 +519,7 @@ PROC TableSelection
   next a
 
   @DrawBufferEnd
-  @ShowScreen
+  ' @ShowScreen
   
   @POS 6,22: @Print & "PRESS A TABLE NUMBER TO JOIN"
   @POS 1,25:@Print &"H-HELP C-COLOR N-NAME Q-QUIT R-REFRESH"
@@ -581,12 +581,15 @@ PROC ReadKeyPresses
   Elif K=198
     @GoodBeep
     @DisplayHelpDialog
-  Elif K=213
+    @DrawGameState 
+  Elif K=213 ' Leave Table confirm
     @GoodBeep
     @AskSure 1 
-  Elif K=208
+    @DrawGameState
+  Elif K=208 ' Quit Game confrim
     @GoodBeep
     @AskSure 2 
+    @DrawGameState
   ENDIF
 ENDPROC
 
@@ -677,7 +680,7 @@ PROC ShowResults
   @DrawPlayersResults
   @POS 7,25:@Print &"PRESS ANY KEY TO CONTINUE"
   @DrawBufferEnd
-  @ShowScreen
+  ' @ShowScreen
   GET K
   move$="R"
   @PlayMove
@@ -696,7 +699,7 @@ PROC ShowGameOver
   @DrawFinalResults
   @POS 7,25:@Print &"PRESS ANY KEY TO CONTINUE"
   @DrawBufferEnd
-  @ShowScreen
+  ' @ShowScreen
   GET K
   move$="G"
   @PlayMove
@@ -716,7 +719,7 @@ PROC AskSure _type
   INC Y:@PrintAt x,y, &"   Y: YES"
   INC Y:@PrintAt x,y, &"   N: NO"
   @DrawBufferEnd
-  @ShowScreen
+  ' @ShowScreen
   do
     GET K
     if K=89 ' Y - yes quit
@@ -782,9 +785,13 @@ PROC DisplayHelpDialog
   INC Y
   INC Y:@PrintAt x,y, &"C: TABLE COLOR"
   INC Y
-  INC Y:@PrintAt x,y, &"L: LEAVE TABLE"
-  INC Y
-  INC Y:@PrintAt x,y, &"N: CHANGE NAME"
+  if GameStatus(tablenumber)<>0
+    INC Y:@PrintAt x,y, &"E: LEAVE TABLE"
+    INC Y
+  EndIF
+  if GameStatus(tablenumber)=0
+    INC Y:@PrintAt x,y, &"N: CHANGE NAME"
+  EndIF
   INC Y
   INC Y:@PrintAt x,y, &"RETURN: RETURN"
   
@@ -796,11 +803,10 @@ PROC DisplayHelpDialog
     K=0
     Elif k=72 ' H - how to play
       @ViewHowToPlay 
-      '@DisplayHelpDialog
-    Elif K=78 ' N - change name
+    Elif K=78 and GameStatus(tablenumber)=0 ' N - change name
       @SetPlayerName 
       @DisplayHelpDialog 
-    Elif K=76   ' L - leave table
+    Elif K=69 and GameStatus(tablenumber)<>0  ' E - leave table
      @AskSure 1
      @DisplayHelpDialog 
     Elif K=81  ' Q - Quiting program 
@@ -845,7 +851,7 @@ PROC ViewHowToPlay
   inc y:@PrintAt 9,y, &"YOU CAN RETURN A TOKEN"
   inc y:@PrintAt 7,25, &"PRESS ANY KEY FOR NEXT PAGE"
   @DrawBufferEnd
-  @ShowScreen
+  ' @ShowScreen
   GET K
   @EnableDoubleBuffer
   @ResetScreen
@@ -877,10 +883,8 @@ PROC ViewHowToPlay
   inc y:@PrintAt 1,y, &"POINTS WINS" 
   inc y:@PrintAt 7,25, &"PRESS ANY KEY TO RETURN"
   @DrawBufferEnd
-  @ShowScreen
+  ' @ShowScreen
   GET K
-  
-  
 ENDPROC
 
 Proc LeaveGame
@@ -1091,7 +1095,6 @@ Proc DrawCardFromDeck _endX _endY _card
       @DrawCard dx,dy,card
     endif
   until dx=endx and dy=endy
- ' @POS 19,13: @PrintVal Drawdeck
   @UpdateScreenBuffer
   sound
 ENDPROC
@@ -1161,7 +1164,7 @@ PROC DrawGameState
   @DrawCard 17,9,8 ' Draw Deck
   '@DrawCard 20,9,0 ' Discard Pile
   @DrawBufferEnd
-  @ShowScreen
+  ' @ShowScreen
   exit
   ENDIF
   if Drawdeck>0 
@@ -1174,7 +1177,7 @@ PROC DrawGameState
     DrawDeck=56
     @POS 19,13: @PrintVal Drawdeck
     @DrawBufferEnd
-    @ShowScreen
+    ' @ShowScreen
     @DealCards
     @EnableDoubleBuffer
   Endif
@@ -1190,7 +1193,7 @@ PROC DrawGameState
   @POS 7,24: @Print &"WAITING FOR OTHERS TO PLAY"
   ENDIF
   @DrawBufferEnd
-  @ShowScreen
+  ' @ShowScreen
 ENDPROC
 
 PROC DrawMainPlayerHand _Index
@@ -1617,7 +1620,6 @@ PROC NInput __NI_stringPointer
 ENDPROC
 
 PROC QuitGame
-  @LeaveGame
   ' Enable FujiNet Config to take over D1:
   SIO $70, 1, $D9, $00, 0, $09, 0, 1,0
   ' Reboot via assembly: JMP $E477     
@@ -1704,6 +1706,8 @@ PROC InitScreen
 
   ' Disable accidental break key press
   poke 16,64:poke 53774,64
+
+  @ShowScreen
 
 ENDPROC
 
