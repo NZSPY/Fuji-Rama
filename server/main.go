@@ -83,8 +83,6 @@ type Player struct {
 	ValidMove      string    // List of valid moves for the player (e.g., "play", "fold", "draw")
 	Playorder      int       // The order in which the player plays (0 is first)
 	RoundScore     int       // Score for the current round
-	Message1       string    // Use on the results page to display the counters and score
-	Message2       string    // Additional message line for the results  if required
 	LastPolledTime time.Time // The time when the player last called the get state function
 	Handsumary     string    // store the hand summary form for sending via JSON to 8 bit computers the
 }
@@ -825,9 +823,8 @@ func EndofRoundScore(tableIndex int) {
 	fmt.Println("------------- End of round summary ------------------")
 	for i := 0; i < len(gameStates[tableIndex].Players); i++ {
 		{
-			a := 0
-			b := 0
-			c := 0
+			WhiteTokens := 0
+			BlackTokens := 0
 			f1 := 0
 			f2 := 0
 			f3 := 0
@@ -841,57 +838,58 @@ func EndofRoundScore(tableIndex int) {
 				case card.Cardvalue == 0:
 					// do nothing
 				case card.Cardvalue == 1 && f1 == 0:
-					a = a + card.Cardvalue
+					WhiteTokens = WhiteTokens + card.Cardvalue
 					f1++
 				case card.Cardvalue == 2 && f2 == 0:
-					a = a + card.Cardvalue
+					WhiteTokens = WhiteTokens + card.Cardvalue
 					f2++
 				case card.Cardvalue == 3 && f3 == 0:
-					a = a + card.Cardvalue
+					WhiteTokens = WhiteTokens + card.Cardvalue
 					f3++
 				case card.Cardvalue == 4 && f4 == 0:
-					a = a + card.Cardvalue
+					WhiteTokens = WhiteTokens + card.Cardvalue
 					f4++
 				case card.Cardvalue == 5 && f5 == 0:
-					a = a + card.Cardvalue
+					WhiteTokens = WhiteTokens + card.Cardvalue
 					f5++
 				case card.Cardvalue == 6 && f6 == 0:
-					a = a + card.Cardvalue
+					WhiteTokens = WhiteTokens + card.Cardvalue
 					f6++
 				case card.Cardvalue == 7 && f7 == 0:
-					b++ // Llama is worth 1 black token (10 points)
+					BlackTokens++ // Llama is worth 1 black token (10 points)
 					f7++
 				}
 			}
 
-			c = a / 10
-			b = b + c
-			a = a - (c * 10)
-			if (a + (b * 10)) == 0 {
+			RoundScore := WhiteTokens + (BlackTokens * 10)
+
+			if RoundScore == 0 { // Player has no cards left in hand so score is 0 for this round and can return a token if they have one
 				switch {
 				case gameStates[tableIndex].Players[i].BlackTokens > 0:
-					gameStates[tableIndex].Players[i].Message1 = gameStates[tableIndex].Players[i].Name + " finished with no cards, so scores zero points and is returning one black token"
 					gameStates[tableIndex].Players[i].BlackTokens = gameStates[tableIndex].Players[i].BlackTokens - 1
-					gameStates[tableIndex].Players[i].RoundScore = -10
+					gameStates[tableIndex].Players[i].RoundScore = 0
 				case gameStates[tableIndex].Players[i].WhiteTokens > 0:
-					gameStates[tableIndex].Players[i].Message1 = gameStates[tableIndex].Players[i].Name + " finished with no cards, so scores zero points and is returning one white token"
 					gameStates[tableIndex].Players[i].WhiteTokens = gameStates[tableIndex].Players[i].WhiteTokens - 1
-					gameStates[tableIndex].Players[i].RoundScore = -1
+					gameStates[tableIndex].Players[i].RoundScore = 0
 				default:
-					gameStates[tableIndex].Players[i].Message1 = gameStates[tableIndex].Players[i].Name + " finished with no cards, so scores zero points"
 					gameStates[tableIndex].Players[i].RoundScore = 0
 				}
 			} else {
-				gameStates[tableIndex].Players[i].RoundScore = a + (b * 10) // Calculate the round score
-				gameStates[tableIndex].Players[i].Message1 = fmt.Sprintf("and gains %d white counters and %d black counters, scoring %d points", a, b, gameStates[tableIndex].Players[i].RoundScore)
-				gameStates[tableIndex].Players[i].WhiteTokens = gameStates[tableIndex].Players[i].WhiteTokens + a
-				gameStates[tableIndex].Players[i].BlackTokens = gameStates[tableIndex].Players[i].BlackTokens + b
+				gameStates[tableIndex].Players[i].RoundScore = RoundScore
+				gameStates[tableIndex].Players[i].WhiteTokens = gameStates[tableIndex].Players[i].WhiteTokens + WhiteTokens
+				gameStates[tableIndex].Players[i].BlackTokens = gameStates[tableIndex].Players[i].BlackTokens + BlackTokens
 
 			}
-			gameStates[tableIndex].Players[i].Score = gameStates[tableIndex].Players[i].Score + gameStates[tableIndex].Players[i].RoundScore // Update the player's total score
-			gameStates[tableIndex].Players[i].Message2 = fmt.Sprintf("Total score is now %d points", gameStates[tableIndex].Players[i].Score)
+			if gameStates[tableIndex].Players[i].WhiteTokens > 9 {
+				gameStates[tableIndex].Players[i].BlackTokens = gameStates[tableIndex].Players[i].BlackTokens + int(gameStates[tableIndex].Players[i].WhiteTokens/10)
+				gameStates[tableIndex].Players[i].WhiteTokens = gameStates[tableIndex].Players[i].WhiteTokens % 10
+			}
+
+			gameStates[tableIndex].Players[i].Score = gameStates[tableIndex].Players[i].WhiteTokens + gameStates[tableIndex].Players[i].BlackTokens // Update the player's total score
+
 		}
 	}
+
 	gameStates[tableIndex].LastMovePlayed = "Please view the results"
 	gameStates[tableIndex].RoundOver = true // Set the round over flag to true to prevent multiple score calculations
 	gameStates[tableIndex].Table.Status = 4
