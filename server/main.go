@@ -885,7 +885,7 @@ func EndofRoundScore(tableIndex int) {
 				gameStates[tableIndex].Players[i].WhiteTokens = gameStates[tableIndex].Players[i].WhiteTokens % 10
 			}
 
-			gameStates[tableIndex].Players[i].Score = gameStates[tableIndex].Players[i].WhiteTokens + gameStates[tableIndex].Players[i].BlackTokens // Update the player's total score
+			gameStates[tableIndex].Players[i].Score = gameStates[tableIndex].Players[i].WhiteTokens + (gameStates[tableIndex].Players[i].BlackTokens * 10) // Update the player's total score
 
 		}
 	}
