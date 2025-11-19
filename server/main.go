@@ -249,8 +249,9 @@ func joinTable(c *gin.Context) {
 		Playorder:      0,          // Set the play order to the current number of players
 		LastPolledTime: time.Now(), // Set the last polled time to now
 	}
-	// Add the new player to the game state if a valid condtions are met
+	fmt.Println("A player is trying to join table:", string(tables[tableIndex].Table), " with name:", newplayerName) // Log the player trying to join the table
 
+	// Add the new player to the game state if a valid condtions are met
 	switch {
 	case !ok:
 		c.JSON(http.StatusNotFound, "ERR(1)You need to specify a valid table and player name to join") // Notify the player to specify a table and player name
@@ -270,8 +271,9 @@ func joinTable(c *gin.Context) {
 		return
 
 	default:
-		c.JSON(http.StatusOK, newplayerName+" joined table "+tables[tableIndex].Table) // Notify the player that they have successfully joined the table
-		gameStates[tableIndex].Table.Status = 2                                        // set status to waiting
+		c.JSON(http.StatusOK, newplayerName+" joined table "+tables[tableIndex].Table)                         // Notify the player that they have successfully joined the table
+		fmt.Println("Success !!.. Player ", newplayerName, " Joined table ", string(tables[tableIndex].Table)) // Log the player joining the table
+		gameStates[tableIndex].Table.Status = 2                                                                // set status to waiting
 		gameStates[tableIndex].Players = append(gameStates[tableIndex].Players, newplayer)
 		gameStates[tableIndex].Players[len(gameStates[tableIndex].Players)-1].Playorder = gameStates[tableIndex].Table.CurPlayers // Set the play order for the new player
 		gameStates[tableIndex].Table.CurPlayers++                                                                                 // Increment the current players count
@@ -823,41 +825,17 @@ func EndofRoundScore(tableIndex int) {
 	fmt.Println("------------- End of round summary ------------------")
 	for i := 0; i < len(gameStates[tableIndex].Players); i++ {
 		{
+			SortHand(tableIndex, i)             // Sort the player's hand before calculating the score
+			RemoveDuplicateCards(tableIndex, i) // Remove any duplicate cards from the player's hand before calculating the score
 			WhiteTokens := 0
 			BlackTokens := 0
-			f1 := 0
-			f2 := 0
-			f3 := 0
-			f4 := 0
-			f5 := 0
-			f6 := 0
-			f7 := 0
 			// Calculate the score based on the cards remaining in the player's hand
 			for _, card := range gameStates[tableIndex].Players[i].Hand {
-				switch {
-				case card.Cardvalue == 0:
-					// do nothing
-				case card.Cardvalue == 1 && f1 == 0:
+				if card.Cardvalue > 0 && card.Cardvalue < 7 {
 					WhiteTokens = WhiteTokens + card.Cardvalue
-					f1++
-				case card.Cardvalue == 2 && f2 == 0:
-					WhiteTokens = WhiteTokens + card.Cardvalue
-					f2++
-				case card.Cardvalue == 3 && f3 == 0:
-					WhiteTokens = WhiteTokens + card.Cardvalue
-					f3++
-				case card.Cardvalue == 4 && f4 == 0:
-					WhiteTokens = WhiteTokens + card.Cardvalue
-					f4++
-				case card.Cardvalue == 5 && f5 == 0:
-					WhiteTokens = WhiteTokens + card.Cardvalue
-					f5++
-				case card.Cardvalue == 6 && f6 == 0:
-					WhiteTokens = WhiteTokens + card.Cardvalue
-					f6++
-				case card.Cardvalue == 7 && f7 == 0:
+				}
+				if card.Cardvalue == 7 {
 					BlackTokens++ // Llama is worth 1 black token (10 points)
-					f7++
 				}
 			}
 
@@ -1020,4 +998,23 @@ func updateLobby(tableIndex int) {
 	sendStateToLobby(gameStates[tableIndex].Table.MaxPlayers, gameStates[tableIndex].Table.CurPlayers, true, gameStates[tableIndex].Table.Name, instanceUrlSuffix)
 
 	fmt.Println("lobby updated for :", string(gameStates[tableIndex].Table.Name))
+}
+
+func SortHand(tableIndex int, playerIndex int) {
+	sort.SliceStable(gameStates[tableIndex].Players[playerIndex].Hand[:], func(i, j int) bool {
+		return gameStates[tableIndex].Players[playerIndex].Hand[i].Cardvalue < gameStates[tableIndex].Players[playerIndex].Hand[j].Cardvalue
+	})
+}
+
+func RemoveDuplicateCards(tableIndex int, playerIndex int) {
+	seen := make(map[int]bool)
+	uniqueHand := Deck{}
+
+	for _, card := range gameStates[tableIndex].Players[playerIndex].Hand {
+		if !seen[card.Cardvalue] {
+			seen[card.Cardvalue] = true
+			uniqueHand = append(uniqueHand, card)
+		}
+	}
+	gameStates[tableIndex].Players[playerIndex].Hand = uniqueHand
 }
