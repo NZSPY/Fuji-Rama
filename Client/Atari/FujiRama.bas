@@ -1,17 +1,17 @@
-' Fuji-Llama Title Page
+' Fuji-Rama Title Page
 ' Written in Atari FastBasic
 ' @author  Simon Young (with lots of help from Eric Carr and Thomas Cherryhomes)
-' @version September 2025
-' This is a client for the Fuji-Llama game server
+' @version Deptember 2025
+' This is a client for the Fuji-Rama game server
 
 ReleaseMajor=0
-ReleaseMinor=4
+ReleaseMinor=1
 
 ' FujiNet AppKey settings. These should not be changed
 AK_LOBBY_CREATOR_ID = 1     ' FUJINET Lobby
 AK_LOBBY_APP_ID  = 1        ' Lobby Enabled Game
 AK_LOBBY_KEY_USERNAME = 0   ' Lobby Username key
-AK_LOBBY_KEY_SERVER = 4     ' Fuji-Llama Client registered as Lobby appkey 4
+AK_LOBBY_KEY_SERVER = 4     ' Fuji-Rama Client registered as Lobby appkey 4
 
 ' Fuji-Llama client
 AK_CREATOR_ID = $B00B       ' Simon Young's creator id
@@ -25,7 +25,7 @@ poke 65,0
 
 DATA NAppKeyBlock()=0,0,0
 
-' Disable BASIC on XL/XE to make more memory available. (found in Erics 5card code don't know if I need it or not)
+' Disable BASIC on XL/XE to make more memory available. 
 if dpeek(741)-$BC00<0
   ' Disable BASIC
   pause: poke $D301, peek($D301) ! 2: poke $3F8, 1
@@ -78,7 +78,7 @@ dim charBuffer(1023) BYTE
 ' **************************************************
 DIM Screen
 ' DATA - Character Fonts
-' Custom character set for FujiLlama - 128 characters, 8 bytes each
+' Custom character set for FujiRama - 128 characters, 8 bytes each
 ' Size: 1024 bytes
 data font() byte = 0,0,0,0,0,0,0,0,
 data byte = 0,0,64,64,64,64,64,85,
@@ -245,7 +245,7 @@ endif
 ' Write server endpoint back to app key so when game is relaunched without the lobby it uses the same server
 @NWriteAppKey AK_LOBBY_CREATOR_ID, AK_LOBBY_APP_ID, AK_LOBBY_KEY_SERVER, &serverEndpoint$
 
-'serverEndpoint$="N:http://192.168.68.100:8080" ' Local server for testing
+serverEndpoint$="N:http://192.168.68.200:8080" ' Local server for testing
 
 ' Fuji-Net Setup Variblies 
 UNIT=1
@@ -990,7 +990,7 @@ Proc DealCards
   data xend5()=38,36,34,32,30,28
   for cardnumber=1 to 6
       for player=0 to 5
-      if player=0 and playerName$(player)<>"" then @DrawCardFromDeck xend0(cardnumber-1),yend(player),VAL(PlayerHand$(player)[cardnumber,1])
+      if player=0 and playerName$(player)<>"" then @DrawCardFromDeck xend0(cardnumber-1),yend(player),VAL(PlayerHand$(playerindex)[cardnumber,1])
       if player=1 and playerName$(player)<>"" then @DrawCardFromDeck xend1(cardnumber-1),yend(player),9
       if player=2 and playerName$(player)<>"" then @DrawCardFromDeck xend2(cardnumber-1),yend(player),9
       if player=3 and playerName$(player)<>"" then @DrawCardFromDeck xend3(cardnumber-1),yend(player),9
